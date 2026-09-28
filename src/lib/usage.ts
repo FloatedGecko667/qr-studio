@@ -13,6 +13,8 @@ export interface Meter {
 export interface Usage {
   chars: number;
   bytes: number;
+  /** Present when the deflated form is used. */
+  compression?: { originalBytes: number; compressedBytes: number };
   /** Symbol(s) actually generated right now (absent when encoding failed). */
   current: Meter | null;
   /** Largest capacity the current settings allow (auto version → largest version, auto append → 16). */
@@ -55,6 +57,7 @@ export function computeUsage(prepared: Prepared, symbol: SymbolSettings, pipelin
   return {
     chars: textChars ?? bytes,
     bytes,
+    compression: prepared.compression,
     current,
     limit: meter(prepared.units, limitSpec, opts, limitCount),
   };

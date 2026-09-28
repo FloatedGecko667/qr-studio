@@ -28,22 +28,42 @@ export type PipelineResult =
   | { status: 'charset' }
   | { status: 'unsupported'; feature: string }
   | { status: 'too-long'; requiredBits: number; availableBits: number; suggestions: Suggestion[] }
-  | { status: 'ok'; result: EncodeResult; units: Unit[]; charset: Charset; opts: EncodeOptions };
+  | { status: 'ok'; result: EncodeResult; units: Unit[]; charset: Charset; opts: EncodeOptions; compression?: Prepared['compression'] };
 
 export interface Prepared {
   units: Unit[];
   charset: Charset;
   fnc1: boolean;
+  /** Raw bytes (binary input or compressed data): no text charset, so no ECI. */
+  binary?: boolean;
+  /** Set when the deflated form was chosen: original / compressed byte counts. */
+  compression?: { originalBytes: number; compressedBytes: number };
 }
 
-export function preparePayload(payload: Payload, charset: SymbolSettings['charset']): Prepared | 'charset' | null {
+/** Spec used to compare alternatives: the fixed version, or the largest one for 'auto'. */
+function referenceSpec(symbol: SymbolSettings) {
+  return symbol.version === 'auto'
+    ? specsBySize(symbol.type, symbol.ecLevel).at(-1)!
+    : specsBySize(symbol.type, symbol.ecLevel).find((s) => s.version === symbol.version)!;
+}
+
+export function preparePayload(payload: Payload, symbol: SymbolSettings): Prepared | 'charset' | null {
   if (payload.errors.length) return null;
-  if (payload.bytes) return { ...prepareBytes(payload.bytes), fnc1: false };
+  if (payload.bytes) return { ...prepareBytes(payload.bytes), fnc1: false, binary: true };
+  let text: Prepared | 'charset';
   try {
-    return { ...prepareText(payload.text ?? '', charset, payload.fnc1), fnc1: payload.fnc1 === true };
+    text = { ...prepareText(payload.text ?? '', symbol.charset, payload.fnc1), fnc1: payload.fnc1 === true };
   } catch {
-    return 'charset';
+    text = 'charset';
   }
+  if (!payload.compressed) return text;
+  const zipped: Prepared = { ...prepareBytes(payload.compressed), fnc1: false, binary: true };
+  if (text !== 'charset') {
+    const spec = referenceSpec(symbol);
+    if (requiredBits(zipped.units, spec, {}) >= requiredBits(text.units, spec, {})) return text;
+  }
+  const originalBytes = new TextEncoder().encode(payload.text ?? '').length;
+  return { ...zipped, compression: { originalBytes, compressedBytes: payload.compressed.length } };
 }
 
 export const MAX_APPEND = 16;
@@ -56,7 +76,7 @@ export function encodeOptions(symbol: SymbolSettings, prepared: Prepared, append
     version: symbol.version,
     mask: symbol.mask,
     // Binary payloads carry no text encoding, so an ECI would be misleading.
-    eci: symbol.eci && prepared.units.length > 0 && !prepared.fnc1 ? ECI_FOR_CHARSET[prepared.charset] : undefined,
+    eci: symbol.eci && prepared.units.length > 0 && !prepared.fnc1 && !prepared.binary ? ECI_FOR_CHARSET[prepared.charset] : undefined,
     fnc1: prepared.fnc1,
     structuredAppend: symbol.structuredAppend === 'auto' ? appendCount : symbol.structuredAppend,
   };
@@ -120,13 +140,13 @@ export function resolveOptions(symbol: SymbolSettings, prepared: Prepared): Enco
 }
 
 export function runPipeline(payload: Payload, symbol: SymbolSettings): PipelineResult {
-  const prepared = preparePayload(payload, symbol.charset);
+  const prepared = preparePayload(payload, symbol);
   if (prepared === null) return { status: 'invalid', errors: payload.errors };
   if (prepared === 'charset') return { status: 'charset' };
   const opts = resolveOptions(symbol, prepared);
   try {
     const result = encode(prepared.units, opts);
-    return { status: 'ok', result, units: prepared.units, charset: prepared.charset, opts };
+    return { status: 'ok', result, units: prepared.units, charset: prepared.charset, opts, compression: prepared.compression };
   } catch (e) {
     if (!(e instanceof EncodeError)) throw e;
     if (e.code === 'unsupported') return { status: 'unsupported', feature: e.message };

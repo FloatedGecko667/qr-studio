@@ -1,4 +1,5 @@
 import wasmUrl from 'zxing-wasm/reader/zxing_reader.wasm?url';
+import type { ReadResult } from 'zxing-wasm/reader';
 
 export interface VerifyResult {
   ok: boolean;
@@ -10,8 +11,8 @@ export interface VerifyResult {
 
 let prepared = false;
 
-/** Decodes an image with zxing-cpp (loaded on first use, served locally for offline use). */
-export async function verifyImage(image: ImageData): Promise<VerifyResult | null> {
+/** Decodes QR / Micro QR / rMQR symbols with zxing-cpp (loaded on first use, served locally). */
+export async function readSymbols(image: ImageData, maxSymbols = 1, tryHarder = true): Promise<ReadResult[]> {
   const zxing = await import('zxing-wasm/reader');
   if (!prepared) {
     zxing.prepareZXingModule({ overrides: { locateFile: (path: string) => (path.endsWith('.wasm') ? wasmUrl : path) } });
@@ -19,10 +20,14 @@ export async function verifyImage(image: ImageData): Promise<VerifyResult | null
   }
   const results = await zxing.readBarcodes(image, {
     formats: ['QRCode', 'MicroQRCode', 'rMQRCode'],
-    tryHarder: true,
-    maxNumberOfSymbols: 1,
+    tryHarder,
+    maxNumberOfSymbols: maxSymbols,
   });
-  const r = results.find((x) => x.isValid);
+  return results.filter((r) => r.isValid);
+}
+
+export async function verifyImage(image: ImageData): Promise<VerifyResult | null> {
+  const [r] = await readSymbols(image);
   if (!r) return null;
   return { ok: true, text: r.text, bytes: r.bytes, format: r.format };
 }

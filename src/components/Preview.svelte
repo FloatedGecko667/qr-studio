@@ -11,6 +11,7 @@
   import { addHistory, newId } from '../lib/storage/records';
   import { versionLabel } from '../lib/encoder';
   import type { Suggestion } from '../lib/pipeline';
+  import { decompressText } from '../lib/optimize';
 
   const out = $derived(app.settings.output);
   const style = $derived(app.settings.style);
@@ -152,6 +153,7 @@
     if (pipe.status !== 'ok') return false;
     // Structured append and GS1 decode to parts / formatted strings; a successful decode is enough.
     if (pipe.result.symbols.length > 1 || pipe.opts.fnc1) return true;
+    if (pipe.compression) return decompressText(bytes) === app.payload.text;
     const p = app.payload;
     if (p.bytes) return bytes.length === p.bytes.length && bytes.every((b, i) => b === p.bytes![i]);
     return text === p.text;

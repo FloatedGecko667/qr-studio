@@ -3,6 +3,9 @@
   import { ecLevelsFor, versionLabel, versionsFor, type EcLevel, type SymbolType } from '../lib/encoder';
   import { t } from '../lib/i18n/index.svelte';
   import { MASK_COUNT } from '../lib/normalize';
+  import type { OptimizeSettings } from '../lib/optimize';
+
+  const OPTIMIZE_KEYS: (keyof OptimizeSettings)[] = ['uppercaseUrl', 'halfwidth', 'compactContact', 'deflate'];
 
   const s = $derived(app.settings.symbol);
   const types: SymbolType[] = ['model2', 'micro', 'rmqr'];
@@ -106,6 +109,17 @@
     {#if s.eci}<p class="muted">{t('symbol.eciHint')}</p>{/if}
   {/if}
 
+  <fieldset class="stack optimize">
+    <legend>{t('optimize.title')}</legend>
+    {#each OPTIMIZE_KEYS as key (key)}
+      <label class="check">
+        <input type="checkbox" checked={app.settings.optimize[key]} onchange={(e) => app.updateOptimize({ [key]: e.currentTarget.checked })} />
+        <span>{t(`optimize.${key}`)}</span>
+      </label>
+      {#if app.settings.optimize[key]}<p class="muted note">{t(`optimize.${key}Hint`)}</p>{/if}
+    {/each}
+  </fieldset>
+
   {#each warnings as w (w)}
     <p class="msg warn">{t(w)}</p>
   {/each}
@@ -114,5 +128,20 @@
 <style>
   p {
     margin: 0;
+  }
+  .optimize {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 12px 12px;
+    gap: 6px;
+  }
+  legend {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-2);
+    padding: 0 4px;
+  }
+  .note {
+    margin-left: 22px;
   }
 </style>

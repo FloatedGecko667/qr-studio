@@ -6,7 +6,7 @@ import { computeUsage } from './usage';
 
 function usage(text: string, symbol: SymbolSettings) {
   const payload = buildText({ text });
-  const prepared = preparePayload(payload, symbol.charset) as Prepared;
+  const prepared = preparePayload(payload, symbol) as Prepared;
   return computeUsage(prepared, symbol, runPipeline(payload, symbol), Array.from(text).length);
 }
 

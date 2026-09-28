@@ -5,6 +5,7 @@
   import History from './components/History.svelte';
   import Licenses from './components/Licenses.svelte';
   import Preview from './components/Preview.svelte';
+  import Scanner from './components/Scanner.svelte';
   import StyleOptions from './components/StyleOptions.svelte';
   import SymbolOptions from './components/SymbolOptions.svelte';
   import UpdatePrompt from './components/UpdatePrompt.svelte';
@@ -13,7 +14,7 @@
   import type { Locale, Theme } from './lib/settings';
   import { applyTheme } from './lib/theme';
 
-  type Tab = 'generate' | 'batch' | 'history';
+  type Tab = 'generate' | 'batch' | 'scan' | 'history';
   let tab: Tab = $state('generate');
   let licensesOpen = $state(false);
 
@@ -32,7 +33,7 @@
     app.persist();
   }
 
-  const TABS: Tab[] = ['generate', 'batch', 'history'];
+  const TABS: Tab[] = ['generate', 'batch', 'scan', 'history'];
 </script>
 
 <header>
@@ -87,6 +88,8 @@
     </div>
   {:else if tab === 'batch'}
     <div class="narrow"><Batch /></div>
+  {:else if tab === 'scan'}
+    <div class="narrow"><Scanner /></div>
   {:else}
     <div class="narrow"><History onRestore={() => (tab = 'generate')} /></div>
   {/if}

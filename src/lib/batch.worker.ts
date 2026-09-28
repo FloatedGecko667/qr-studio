@@ -1,14 +1,15 @@
 /// <reference lib="webworker" />
 // Encodes batch items off the main thread and returns ready-to-rasterize SVG.
 import { EncodeError } from './encoder';
-import { buildText } from './payload';
+import { buildOptimized, type OptimizeSettings } from './optimize';
 import { runPipeline } from './pipeline';
 import { composeSheet } from './render/output';
 import { renderSvg, type RenderStyle } from './render/svg';
 import type { SymbolSettings } from './settings';
 import type { BatchItem } from './batch';
 
-export type BatchRequest = { type: 'start'; items: BatchItem[]; symbol: SymbolSettings; style: RenderStyle } | { type: 'cancel' };
+export type BatchRequest =
+  | { type: 'start'; items: BatchItem[]; symbol: SymbolSettings; style: RenderStyle; optimize: OptimizeSettings } | { type: 'cancel' };
 
 export type BatchResponse =
   | { type: 'item'; index: number; filename: string; svg: string; widthUnits: number; heightUnits: number }
@@ -28,7 +29,7 @@ self.onmessage = async (e: MessageEvent<BatchRequest>) => {
     if (cancelled) break;
     const post = (r: BatchResponse) => self.postMessage(r);
     try {
-      const result = runPipeline(buildText({ text: item.content }), msg.symbol);
+      const result = runPipeline(buildOptimized('text', { text: item.content }, msg.optimize), msg.symbol);
       if (result.status !== 'ok') {
         const reason =
           result.status === 'invalid' ? result.errors[0] : result.status === 'unsupported' ? `symbol.unsupported.${result.feature}` : result.status === 'charset' ? 'status.charset' : 'batch.tooLong';

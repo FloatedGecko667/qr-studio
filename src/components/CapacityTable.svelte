@@ -10,7 +10,7 @@
   let ecFilter: EcLevel | 'all' = $state('all');
 
   const sym = $derived(app.settings.symbol);
-  const prepared = $derived(preparePayload(app.payload, sym.charset));
+  const prepared = $derived(preparePayload(app.payload, sym));
   const opts = $derived(prepared && prepared !== 'charset' ? encodeOptions(sym, prepared, app.appendCount) : null);
   const featureOpts = $derived({
     eci: opts?.eci,

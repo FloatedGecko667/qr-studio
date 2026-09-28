@@ -4,6 +4,7 @@
   import type { Meter } from '../lib/usage';
 
   const usage = $derived(app.usage);
+  const compression = $derived(usage?.compression);
 
   function percent(m: Meter): number {
     return m.limitBits > 0 ? Math.round((m.usedBits / m.limitBits) * 100) : 0;
@@ -45,6 +46,18 @@
           </div>
         </div>
       {/if}
+    {/each}
+    {#if compression}
+      <p class="msg warn">
+        {t('usage.compressed', {
+          from: formatNumber(compression.originalBytes),
+          to: formatNumber(compression.compressedBytes),
+          percent: Math.round((1 - compression.compressedBytes / compression.originalBytes) * 100),
+        })}
+      </p>
+    {/if}
+    {#each app.payload.applied ?? [] as key (key)}
+      <p class="muted">✓ {t(`optimize.${key}Applied`)}</p>
     {/each}
     {#if usage.limit.usedBits > usage.limit.limitBits}
       <p class="msg error">{t('usage.over', { n: formatNumber(usage.limit.usedBits - usage.limit.limitBits) })}</p>

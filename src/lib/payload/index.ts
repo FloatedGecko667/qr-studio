@@ -37,6 +37,10 @@ export interface Payload {
   bytes?: Uint8Array;
   /** GS1 element string: encode with FNC1 in first position. */
   fnc1?: boolean;
+  /** Deflated alternative of `text`; the pipeline uses it when it needs fewer bits. */
+  compressed?: Uint8Array;
+  /** Size optimizations that changed the text (i18n keys under `optimize.`). */
+  applied?: string[];
   errors: string[];
   warnings: string[];
 }
@@ -158,7 +162,8 @@ function contactErrors(f: ContactFields): string[] {
   return [];
 }
 
-export function buildVcard(f: ContactFields): Payload {
+/** `compact` drops optional parameters such as TEL;TYPE=CELL. */
+export function buildVcard(f: ContactFields, compact = false): Payload {
   const errors = contactErrors(f);
   if (errors.length) return fail(...errors);
   const e = escapeIcal;
@@ -166,7 +171,7 @@ export function buildVcard(f: ContactFields): Payload {
   lines.push(`FN:${e([f.firstName, f.lastName].filter(Boolean).join(' ') || f.org)}`);
   if (f.org) lines.push(`ORG:${e(f.org)}`);
   if (f.title) lines.push(`TITLE:${e(f.title)}`);
-  if (f.tel) lines.push(`TEL;TYPE=CELL:${f.tel.trim()}`);
+  if (f.tel) lines.push(`TEL${compact ? '' : ';TYPE=CELL'}:${f.tel.trim()}`);
   if (f.email) lines.push(`EMAIL:${f.email.trim()}`);
   if (f.url) lines.push(`URL:${e(f.url.trim())}`);
   if (f.address) lines.push(`ADR:;;${e(f.address)};;;;`);

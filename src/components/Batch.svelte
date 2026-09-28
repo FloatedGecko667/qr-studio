@@ -79,6 +79,7 @@
       type: 'start',
       items: $state.snapshot(items),
       symbol: $state.snapshot(app.settings.symbol),
+      optimize: $state.snapshot(app.settings.optimize),
       style: renderStyle($state.snapshot(style), app.logoDataUrl, font),
     } satisfies BatchRequest);
   }

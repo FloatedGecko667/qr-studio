@@ -54,7 +54,7 @@ const CONTACT_FIELDS: FieldDef[] = [
   { key: 'note', type: 'textarea', label: 'note', rows: 2 },
 ];
 const CONTACT_DEFAULTS: FormValues = Object.fromEntries(CONTACT_FIELDS.map((f) => [f.key, '']));
-const contact = (f: FormValues): ContactFields => ({
+export const contactFields = (f: FormValues): ContactFields => ({
   lastName: s(f, 'lastName'),
   firstName: s(f, 'firstName'),
   org: s(f, 'org'),
@@ -134,8 +134,8 @@ export const FORMS: Record<PayloadKind, FormDef> = {
     build: (f) =>
       buildWifi({ ssid: s(f, 'ssid'), password: s(f, 'password'), auth: (s(f, 'auth') || 'WPA') as WifiAuth, hidden: b(f, 'hidden') }),
   },
-  vcard: { fields: CONTACT_FIELDS, defaults: CONTACT_DEFAULTS, build: (f) => buildVcard(contact(f)) },
-  mecard: { fields: CONTACT_FIELDS, defaults: CONTACT_DEFAULTS, build: (f) => buildMecard(contact(f)) },
+  vcard: { fields: CONTACT_FIELDS, defaults: CONTACT_DEFAULTS, build: (f) => buildVcard(contactFields(f)) },
+  mecard: { fields: CONTACT_FIELDS, defaults: CONTACT_DEFAULTS, build: (f) => buildMecard(contactFields(f)) },
   geo: {
     fields: [
       { key: 'lat', type: 'number', label: 'lat', placeholder: '35.6812' },

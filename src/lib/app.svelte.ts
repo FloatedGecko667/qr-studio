@@ -3,6 +3,7 @@ import { symbolSpec } from './encoder/symbols';
 import { normalizeOutput, normalizeStyle, normalizeSymbol, DEFAULT_QUIET_ZONE } from './normalize';
 import { FORMS, restoreFields, type FormValues } from './payload/forms';
 import type { PayloadKind } from './payload';
+import { buildOptimized, type OptimizeSettings } from './optimize';
 import { preparePayload, runPipeline, type PipelineResult } from './pipeline';
 import { computeUsage, type Usage } from './usage';
 import { loadJson, saveJson } from './storage/local';
@@ -23,10 +24,10 @@ class AppState {
   logoDataUrl: string | null = $state(null);
   fontDataUrl: string | null = $state(null);
 
-  payload = $derived(FORMS[this.kind].build(this.fields[this.kind]));
+  payload = $derived(buildOptimized(this.kind, this.fields[this.kind], this.settings.optimize));
   pipeline: PipelineResult = $derived(runPipeline(this.payload, this.settings.symbol));
   usage: Usage | null = $derived.by(() => {
-    const prepared = preparePayload(this.payload, this.settings.symbol.charset);
+    const prepared = preparePayload(this.payload, this.settings.symbol);
     if (!prepared || prepared === 'charset' || prepared.units.length === 0) return null;
     const chars = this.payload.text === undefined ? null : Array.from(this.payload.text).length;
     return computeUsage(prepared, this.settings.symbol, this.pipeline, chars);
@@ -67,6 +68,11 @@ class AppState {
 
   updateOutput(patch: Partial<OutputSettings>): void {
     this.settings.output = normalizeOutput({ ...this.settings.output, ...patch });
+    this.persist();
+  }
+
+  updateOptimize(patch: Partial<OptimizeSettings>): void {
+    this.settings.optimize = { ...this.settings.optimize, ...patch };
     this.persist();
   }
 

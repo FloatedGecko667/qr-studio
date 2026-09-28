@@ -1,6 +1,7 @@
 import type { EcLevel, SymbolType } from './encoder';
 import type { Enclosure, LabelPosition } from './render/svg';
 import type { RasterFormat } from './render/raster';
+import { DEFAULT_OPTIMIZE, type OptimizeSettings } from './optimize';
 
 export interface SymbolSettings {
   type: SymbolType;
@@ -48,6 +49,7 @@ export interface Settings {
   symbol: SymbolSettings;
   style: StyleSettings;
   output: OutputSettings;
+  optimize: OptimizeSettings;
   theme: Theme;
   locale: Locale;
 }
@@ -129,6 +131,7 @@ export function loadSettings(stored: unknown): Settings {
     symbol: mergeKnown(DEFAULT_SYMBOL, s.symbol),
     style: mergeKnown(DEFAULT_STYLE, s.style),
     output: mergeKnown(DEFAULT_OUTPUT, s.output),
+    optimize: mergeKnown(DEFAULT_OPTIMIZE, s.optimize),
     theme,
     locale,
   };
