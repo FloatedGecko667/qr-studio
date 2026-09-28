@@ -44,7 +44,8 @@ export interface OutputSettings {
 }
 
 export type Theme = 'system' | 'light' | 'dark';
-export type Mode = 'qr' | 'barcode';
+export type Mode = 'qr' | 'barcode' | 'datamatrix';
+export const MODES: Mode[] = ['qr', 'barcode', 'datamatrix'];
 export type Locale = 'ja' | 'en';
 
 export interface Settings {
@@ -139,7 +140,7 @@ export function loadSettings(stored: unknown): Settings {
     output: mergeKnown(DEFAULT_OUTPUT, s.output),
     optimize: mergeKnown(DEFAULT_OPTIMIZE, s.optimize),
     geoProvider: s.geoProvider === 'osm' ? 'osm' : 'gsi',
-    mode: s.mode === 'barcode' ? 'barcode' : 'qr',
+    mode: MODES.includes(s.mode as Mode) ? (s.mode as Mode) : 'qr',
     theme,
     locale,
   };

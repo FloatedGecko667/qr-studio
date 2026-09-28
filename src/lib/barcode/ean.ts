@@ -96,6 +96,7 @@ function finish(
     right = 5;
   }
   return {
+    kind: 'linear',
     width,
     bars,
     layout: 'retail',

@@ -5,7 +5,7 @@ import { barcodeSize, DEFAULT_BARCODE_OUTPUT, DEFAULT_BARCODE_STYLE, loadBarcode
 
 function sym(type: Parameters<typeof encodeBarcode>[0], value: string): LinearSymbol {
   const r = encodeBarcode(type, value, DEFAULT_BARCODE_OPTIONS);
-  if (!r.ok) throw new Error(r.error);
+  if (!r.ok || r.symbol.kind !== 'linear') throw new Error(r.ok ? 'not linear' : r.error);
   return r.symbol;
 }
 
@@ -85,5 +85,64 @@ describe('loadBarcodeSettings', () => {
     expect(s.style).toMatchObject({ height: 300, quietZone: 3, font: 'jetbrains', fg: '#000000' });
     expect(s.options.wideRatio).toBe(3);
     expect(loadBarcodeSettings({ style: { quietZone: 'auto' } }).style.quietZone).toBe('auto');
+  });
+});
+
+describe('Data Matrix rendering', () => {
+  const dm = (value: string, opts = {}) => {
+    const r = encodeBarcode('datamatrix', value, { ...DEFAULT_BARCODE_OPTIONS, ...opts });
+    if (!r.ok || r.symbol.kind !== 'matrix') throw new Error('expected a matrix');
+    return r.symbol;
+  };
+
+  it('adds the quiet zone on all sides and text below', () => {
+    const s = dm('HELLO');
+    const r = renderBarcodeSvg(s, { ...DEFAULT_BARCODE_STYLE, showText: false });
+    expect([r.widthUnits, r.heightUnits]).toEqual([s.width + 4, s.height + 4]);
+    const t = renderBarcodeSvg(s, { ...DEFAULT_BARCODE_STYLE, fontSize: 3 });
+    expect(t.heightUnits).toBe(s.height + 4 + 3 + DEFAULT_BARCODE_STYLE.textGap);
+    expect(t.svg).toContain('>HELLO</text>');
+    // Long text shrinks rather than overflowing.
+    const long = renderBarcodeSvg(dm('x'.repeat(40)), DEFAULT_BARCODE_STYLE);
+    expect(long.svg).not.toContain('textLength');
+  });
+
+  it('marks non-ASCII Latin-1 text with ECI so readers do not guess', async () => {
+    const { decodeSymbol } = await import('../../test/decode');
+    for (const text of ['Ã©tÃ©', 'café', ' ']) {
+      const s = dm(text);
+      const [res] = await decodeSymbol(s, 4, 2, ['DataMatrix']);
+      expect(res?.text, text).toBe(text);
+    }
+  });
+
+  it('uses UTF-8 with ECI only when needed and honours shape and size', () => {
+    expect(dm('日本語').expected).toEqual(['日本語']);
+    expect(dm('ABCDE', { dmShape: 'rect' }).sizeLabel).toBe('8x18');
+    expect(dm('A', { dmSize: '24x24' }).sizeLabel).toBe('24x24');
+    const r = encodeBarcode('datamatrix', 'x'.repeat(40), { ...DEFAULT_BARCODE_OPTIONS, dmSize: '10x10' });
+    expect(r.ok ? null : r.error).toBe('barcode.error.dmTooLong');
+  });
+
+  it('sizes matrix output with the cell size, not the bar width', () => {
+    const r = { widthUnits: 20, heightUnits: 20 };
+    const out = { ...DEFAULT_BARCODE_OUTPUT, matrixModulePx: 10, modulePx: 2 };
+    expect(barcodeSize(r, out, 'matrix').pxWidth).toBe(200);
+    expect(barcodeSize(r, out, 'linear').pxWidth).toBe(40);
+  });
+
+  it('keeps each generator to its own symbologies and defaults', () => {
+    const s = loadBarcodeSettings({ type: 'code128' }, ['datamatrix', 'gs1-datamatrix'], { showText: false });
+    expect(s.type).toBe('datamatrix');
+    expect(s.style.showText).toBe(false);
+    expect(loadBarcodeSettings({ type: 'gs1-datamatrix', style: { showText: true } }, ['datamatrix', 'gs1-datamatrix'], { showText: false }).style.showText).toBe(true);
+  });
+
+  it('normalizes stored Data Matrix options', () => {
+    const s = loadBarcodeSettings({ type: 'datamatrix', options: { dmShape: 'hex', dmSize: '999x999' } });
+    expect(s.options).toMatchObject({ dmShape: 'square', dmSize: 'auto' });
+    expect(loadBarcodeSettings({ options: { dmShape: 'rect', dmSize: '16x48' } }).options.dmSize).toBe('16x48');
+    // A fixed size of the other shape falls back to auto.
+    expect(loadBarcodeSettings({ options: { dmShape: 'square', dmSize: '8x18' } }).options.dmSize).toBe('auto');
   });
 });

@@ -1,8 +1,8 @@
 // SVG for linear barcodes in module units (1 unit = narrow bar width). User text is XML-escaped
 // and colours are validated, as for QR output.
 import { FONT_FAMILY } from '../render/fontName';
-import { escapeXml, safeColor, type SvgResult } from '../render/svg';
-import type { LinearSymbol } from './types';
+import { escapeXml, modulesPath, safeColor, type SvgResult } from '../render/svg';
+import type { BarcodeSymbol, LinearSymbol, MatrixSymbol } from './types';
 
 export type BarcodeFont = 'jetbrains' | 'sans' | 'serif' | 'mono';
 export type Bearer = 'none' | 'bars' | 'frame';
@@ -61,9 +61,50 @@ function retailOverflow(sym: LinearSymbol, fs: number): [number, number] {
   return [left, right];
 }
 
-export function renderBarcodeSvg(sym: LinearSymbol, s: BarcodeStyle, fontDataUrl: string | null = null): SvgResult {
+export function renderBarcodeSvg(sym: BarcodeSymbol, s: BarcodeStyle, fontDataUrl: string | null = null): SvgResult {
+  return sym.kind === 'matrix' ? renderMatrix(sym, s, fontDataUrl) : renderLinear(sym, s, fontDataUrl);
+}
+
+function openSvg(widthUnits: number, heightUnits: number, s: BarcodeStyle, fontDataUrl: string | null): string[] {
+  // preserveAspectRatio="none": a rounded raster height must never shift the bars sideways.
+  const out = [`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${widthUnits} ${heightUnits}" preserveAspectRatio="none">`];
+  if (s.showText && s.font === 'jetbrains' && fontDataUrl) {
+    out.push(`<style>@font-face{font-family:'${FONT_FAMILY}';src:url(${fontDataUrl}) format("woff2");}</style>`);
+  }
+  if (!s.transparent) out.push(`<rect width="${widthUnits}" height="${heightUnits}" fill="${safeColor(s.bg, '#ffffff')}"/>`);
+  return out;
+}
+
+/** Centred human-readable text, squeezed with textLength when it is wider than `room`. */
+function centredText(value: string, cx: number, top: number, size: number, room: number, s: BarcodeStyle): string {
+  const w = textWidth(value, size);
+  const fit = w > room ? ` textLength="${r(room)}" lengthAdjust="spacingAndGlyphs"` : '';
+  return `<text x="${r(cx)}" y="${r(top + size * ASCENT)}" font-size="${r(size)}" text-anchor="middle" fill="${safeColor(s.fg, '#000000')}" font-family="${escapeXml(FONT_STACKS[s.font])}"${fit}>${escapeXml(value)}</text>`;
+}
+
+/** Data Matrix: square quiet zone on all sides, optional text outside it. */
+function renderMatrix(sym: MatrixSymbol, s: BarcodeStyle, fontDataUrl: string | null): SvgResult {
+  const q = s.quietZone === 'auto' ? sym.quiet[0] : s.quietZone;
+  // Long text shrinks to the symbol width instead of being squeezed.
+  const fit = (sym.width + q * 2 - 1) / Math.max(1, Array.from(sym.hrt).length * CHAR_WIDTH);
+  const fs = Math.min(s.fontSize, Math.floor(fit * 100) / 100);
+  const band = s.showText ? fs + s.textGap : 0;
+  const top = s.showText && s.textPosition === 'top';
+  const widthUnits = sym.width + q * 2;
+  const heightUnits = sym.height + q * 2 + band;
+  const y0 = q + (top ? band : 0);
+  const out = openSvg(widthUnits, heightUnits, s, fontDataUrl);
+  out.push(`<path fill="${safeColor(s.fg, '#000000')}" shape-rendering="crispEdges" d="${modulesPath(sym, q, y0)}"/>`);
+  if (s.showText) {
+    const textTop = top ? s.textGap : y0 + sym.height + q;
+    out.push(centredText(sym.hrt, widthUnits / 2, textTop, fs, widthUnits - 1, s));
+  }
+  out.push('</svg>');
+  return { svg: out.join(''), widthUnits, heightUnits };
+}
+
+function renderLinear(sym: LinearSymbol, s: BarcodeStyle, fontDataUrl: string | null): SvgResult {
   const fg = safeColor(s.fg, '#000000');
-  const bg = safeColor(s.bg, '#ffffff');
   const fs = s.showText ? s.fontSize : 0;
   const band = s.showText ? fs + s.textGap : 0;
   const retail = sym.layout === 'retail' && s.showText;
@@ -89,14 +130,8 @@ export function renderBarcodeSvg(sym: LinearSymbol, s: BarcodeStyle, fontDataUrl
   const textTop = bottomText ? barsBottom + bw + s.textGap : s.marginY;
   const heightUnits = r(barsBottom + bw + (bottomText ? band : 0) + s.marginY);
 
-  const out: string[] = [];
-  // preserveAspectRatio="none": a rounded raster height must never shift the bars sideways.
-  out.push(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${widthUnits} ${heightUnits}" preserveAspectRatio="none">`);
+  const out = openSvg(widthUnits, heightUnits, s, fontDataUrl);
   const family = FONT_STACKS[s.font];
-  if (s.showText && s.font === 'jetbrains' && fontDataUrl) {
-    out.push(`<style>@font-face{font-family:'${FONT_FAMILY}';src:url(${fontDataUrl}) format("woff2");}</style>`);
-  }
-  if (!s.transparent) out.push(`<rect width="${widthUnits}" height="${heightUnits}" fill="${bg}"/>`);
 
   const d: string[] = [];
   const addonTop = s.showText && s.textPosition === 'bottom' ? barsTop + band : barsTop;

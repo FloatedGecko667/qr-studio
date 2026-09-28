@@ -1,15 +1,22 @@
 <script lang="ts">
   import type { BarcodeFont, BarcodeStyle, Bearer } from '../lib/barcode/render';
-  import { BARCODE_LIMITS } from '../lib/barcode/settings';
-  import { barcode } from '../lib/barcode/state.svelte';
+  import { IS_MATRIX } from '../lib/barcode';
+  import { BARCODE_LIMITS, moduleSize } from '../lib/barcode/settings';
+  import type { BarcodeState } from '../lib/barcode/state.svelte';
   import { t } from '../lib/i18n/index.svelte';
   import { colorIssues } from '../lib/render/color';
 
-  const s = $derived(barcode.settings.style);
-  const out = $derived(barcode.settings.output);
+  let { code }: { code: BarcodeState } = $props();
+
+  const s = $derived(code.settings.style);
+  const out = $derived(code.settings.output);
   const issues = $derived(colorIssues(s.fg, s.bg, s.transparent));
   /** Lengths are stored in modules and shown in the output unit. */
-  const scale = $derived(out.unit === 'px' ? out.modulePx : out.moduleMm);
+  const matrix = $derived(IS_MATRIX.has(code.settings.type));
+  const scale = $derived.by(() => {
+    const m = moduleSize(out, matrix ? 'matrix' : 'linear');
+    return out.unit === 'px' ? m.px : m.mm;
+  });
   const step = $derived(out.unit === 'px' ? 1 : 0.1);
   const FONTS: BarcodeFont[] = ['jetbrains', 'sans', 'serif', 'mono'];
   const BEARERS: Bearer[] = ['none', 'bars', 'frame'];
@@ -18,14 +25,14 @@
   const range = (limits: readonly [number, number]) => ({ min: shown(limits[0]), max: shown(limits[1]) });
 
   function set<K extends keyof BarcodeStyle>(key: K, value: BarcodeStyle[K]) {
-    barcode.updateStyle({ [key]: value } as Partial<BarcodeStyle>);
+    code.updateStyle({ [key]: value } as Partial<BarcodeStyle>);
   }
 
   function setLength(key: 'height' | 'marginY' | 'fontSize' | 'textGap' | 'quietZone', e: Event & { currentTarget: HTMLInputElement }) {
     const v = Number(e.currentTarget.value);
     if (Number.isFinite(v)) set(key, v / scale);
     // Show the clamped value even when it did not change the stored one.
-    const stored = barcode.settings.style[key];
+    const stored = code.settings.style[key];
     e.currentTarget.value = stored === 'auto' ? '' : String(shown(stored));
   }
 </script>
@@ -35,18 +42,20 @@
   <p class="muted">{t('barcode.style.unitNote', { unit: out.unit })}</p>
 
   <div class="grid2">
-    <label class="field">
-      <span>{t('barcode.style.height')} ({out.unit})</span>
-      <input type="number" {...range(BARCODE_LIMITS.height)} {step} value={shown(s.height)} onchange={(e) => setLength('height', e)} />
-    </label>
-    <label class="field">
-      <span>{t('barcode.style.marginY')} ({out.unit})</span>
-      <input type="number" {...range(BARCODE_LIMITS.marginY)} {step} value={shown(s.marginY)} onchange={(e) => setLength('marginY', e)} />
-    </label>
+    {#if !matrix}
+      <label class="field">
+        <span>{t('barcode.style.height')} ({out.unit})</span>
+        <input type="number" {...range(BARCODE_LIMITS.height)} {step} value={shown(s.height)} onchange={(e) => setLength('height', e)} />
+      </label>
+      <label class="field">
+        <span>{t('barcode.style.marginY')} ({out.unit})</span>
+        <input type="number" {...range(BARCODE_LIMITS.marginY)} {step} value={shown(s.marginY)} onchange={(e) => setLength('marginY', e)} />
+      </label>
+    {/if}
     <div class="field">
-      <span class="label">{t('barcode.style.quietZone')} ({out.unit})</span>
+      <span class="label">{t(matrix ? 'barcode.style.quietZoneAll' : 'barcode.style.quietZone')} ({out.unit})</span>
       <label class="check">
-        <input type="checkbox" checked={s.quietZone === 'auto'} onchange={(e) => set('quietZone', e.currentTarget.checked ? 'auto' : 10)} />
+        <input type="checkbox" checked={s.quietZone === 'auto'} onchange={(e) => set('quietZone', e.currentTarget.checked ? 'auto' : matrix ? 2 : 10)} />
         {t('barcode.style.quietAuto')}
       </label>
       {#if s.quietZone !== 'auto'}
@@ -60,14 +69,16 @@
       {/if}
     </div>
   </div>
-  <div class="field start">
-    <span class="label" id="bearer-label">{t('barcode.style.bearer')}</span>
-    <div class="segmented" role="group" aria-labelledby="bearer-label">
-      {#each BEARERS as b (b)}
-        <button type="button" aria-pressed={s.bearer === b} onclick={() => set('bearer', b)}>{t(`barcode.bearer.${b}`)}</button>
-      {/each}
+  {#if !matrix}
+    <div class="field start">
+      <span class="label" id="bearer-label">{t('barcode.style.bearer')}</span>
+      <div class="segmented" role="group" aria-labelledby="bearer-label">
+        {#each BEARERS as b (b)}
+          <button type="button" aria-pressed={s.bearer === b} onclick={() => set('bearer', b)}>{t(`barcode.bearer.${b}`)}</button>
+        {/each}
+      </div>
     </div>
-  </div>
+  {/if}
 
   <label class="check">
     <input type="checkbox" checked={s.showText} onchange={(e) => set('showText', e.currentTarget.checked)} />

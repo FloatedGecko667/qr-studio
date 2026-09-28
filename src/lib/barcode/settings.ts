@@ -1,6 +1,7 @@
 import type { RasterFormat } from '../render/raster';
 import type { SvgResult } from '../render/svg';
 import { mergeKnown } from '../settings';
+import { DM_SIZES, dmSizeLabel } from './datamatrix';
 import { BARCODE_LABELS } from './index';
 import type { BarcodeStyle } from './render';
 import { DEFAULT_BARCODE_OPTIONS, type BarcodeOptions, type BarcodeType } from './types';
@@ -11,6 +12,9 @@ export interface BarcodeOutput {
   modulePx: number;
   /** Narrow bar width (X dimension) in millimetres. */
   moduleMm: number;
+  /** Data Matrix module size; 2D symbols need larger modules than bars. */
+  matrixModulePx: number;
+  matrixModuleMm: number;
   dpi: number;
   format: RasterFormat | 'svg';
   quality: number;
@@ -24,6 +28,7 @@ export interface BarcodeSettings {
 }
 
 export const BARCODE_KEY = 'qr-studio:barcode';
+export const MATRIX_KEY = 'qr-studio:datamatrix';
 
 export const DEFAULT_BARCODE_STYLE: BarcodeStyle = {
   height: 50,
@@ -44,6 +49,8 @@ export const DEFAULT_BARCODE_OUTPUT: BarcodeOutput = {
   unit: 'px',
   modulePx: 2,
   moduleMm: 0.33,
+  matrixModulePx: 8,
+  matrixModuleMm: 0.5,
   dpi: 300,
   format: 'png',
   quality: 0.92,
@@ -56,6 +63,7 @@ export const BARCODE_LIMITS = {
   fontSize: [4, 30],
   textGap: [0, 10],
   modulePx: [1, 20],
+  matrixModulePx: [1, 50],
   moduleMm: [0.1, 2],
   dpi: [72, 1200],
   wideRatio: [2, 3],
@@ -91,6 +99,8 @@ export function normalizeBarcodeOutput(o: BarcodeOutput): BarcodeOutput {
     unit: o.unit === 'mm' ? 'mm' : 'px',
     modulePx: Math.round(clamp(o.modulePx, L.modulePx)),
     moduleMm: round(clamp(o.moduleMm, L.moduleMm), 0.001),
+    matrixModulePx: Math.round(clamp(o.matrixModulePx, L.matrixModulePx)),
+    matrixModuleMm: round(clamp(o.matrixModuleMm, L.moduleMm), 0.001),
     dpi: Math.round(clamp(o.dpi, L.dpi)),
     format: oneOf(o.format, ['png', 'svg', 'jpeg', 'webp'] as const, 'png'),
     quality: clamp(o.quality, [0.5, 1]),
@@ -99,6 +109,7 @@ export function normalizeBarcodeOutput(o: BarcodeOutput): BarcodeOutput {
 
 export function normalizeBarcodeOptions(o: BarcodeOptions): BarcodeOptions {
   const guards = ['A', 'B', 'C', 'D'] as const;
+  const dmShape = oneOf(o.dmShape, ['auto', 'square', 'rect'] as const, 'square');
   return {
     checkDigit: o.checkDigit === true,
     fullAscii: o.fullAscii === true,
@@ -107,15 +118,28 @@ export function normalizeBarcodeOptions(o: BarcodeOptions): BarcodeOptions {
     codabarStart: oneOf(o.codabarStart, guards, 'A'),
     codabarStop: oneOf(o.codabarStop, guards, 'A'),
     addon: String(o.addon ?? '').slice(0, 5),
+    dmShape,
+    // A fixed size must match the shape, or the size menu could not show it.
+    dmSize: DM_SIZES.some((s) => dmSizeLabel(s) === o.dmSize && (dmShape === 'auto' || (dmShape === 'square') === (s.rows === s.cols)))
+      ? o.dmSize
+      : 'auto',
   };
 }
 
-export function loadBarcodeSettings(stored: unknown): BarcodeSettings {
+/**
+ * `types` limits the symbologies of one generator (barcodes or Data Matrix); `styleDefaults`
+ * overrides the default style for it.
+ */
+export function loadBarcodeSettings(
+  stored: unknown,
+  types: readonly BarcodeType[] = Object.keys(BARCODE_LABELS) as BarcodeType[],
+  styleDefaults: Partial<BarcodeStyle> = {},
+): BarcodeSettings {
   const s = (stored && typeof stored === 'object' ? stored : {}) as Record<string, unknown>;
   return {
-    type: oneOf(s.type, Object.keys(BARCODE_LABELS) as BarcodeType[], 'code128'),
+    type: oneOf(s.type, types, types[0]),
     options: normalizeBarcodeOptions(mergeKnown(DEFAULT_BARCODE_OPTIONS, s.options)),
-    style: normalizeBarcodeStyle(mergeKnown(DEFAULT_BARCODE_STYLE, s.style)),
+    style: normalizeBarcodeStyle(mergeKnown({ ...DEFAULT_BARCODE_STYLE, ...styleDefaults }, s.style)),
     output: normalizeBarcodeOutput(mergeKnown(DEFAULT_BARCODE_OUTPUT, s.output)),
   };
 }
@@ -134,8 +158,14 @@ export interface BarcodeSize {
  * Raster output always uses a whole number of pixels per module so every bar keeps its exact
  * width; in mm mode the X dimension is rounded to the printer's dot grid.
  */
-export function barcodeSize(r: Pick<SvgResult, 'widthUnits' | 'heightUnits'>, o: BarcodeOutput): BarcodeSize {
-  const dots = o.unit === 'px' ? o.modulePx : Math.max(1, Math.round((o.moduleMm * o.dpi) / 25.4));
+/** Module size in px and mm for the symbol kind. */
+export function moduleSize(o: BarcodeOutput, kind: 'linear' | 'matrix'): { px: number; mm: number } {
+  return kind === 'matrix' ? { px: o.matrixModulePx, mm: o.matrixModuleMm } : { px: o.modulePx, mm: o.moduleMm };
+}
+
+export function barcodeSize(r: Pick<SvgResult, 'widthUnits' | 'heightUnits'>, o: BarcodeOutput, kind: 'linear' | 'matrix' = 'linear'): BarcodeSize {
+  const m = moduleSize(o, kind);
+  const dots = o.unit === 'px' ? m.px : Math.max(1, Math.round((m.mm * o.dpi) / 25.4));
   const mm = (v: number) => `${Math.round(v * 1000) / 1000}mm`;
   return {
     pxWidth: Math.round(r.widthUnits * dots),
@@ -143,7 +173,7 @@ export function barcodeSize(r: Pick<SvgResult, 'widthUnits' | 'heightUnits'>, o:
     svgAttr:
       o.unit === 'px'
         ? { width: `${Math.round(r.widthUnits * dots)}`, height: `${Math.round(r.heightUnits * dots)}` }
-        : { width: mm(r.widthUnits * o.moduleMm), height: mm(r.heightUnits * o.moduleMm) },
+        : { width: mm(r.widthUnits * m.mm), height: mm(r.heightUnits * m.mm) },
     dotsPerModule: dots,
     rasterModuleMm: o.unit === 'mm' ? (dots * 25.4) / o.dpi : null,
   };

@@ -12,8 +12,8 @@ export interface VerifyResult {
 let prepared = false;
 
 export const QR_FORMATS: ReadInputBarcodeFormat[] = ['QRCode', 'MicroQRCode', 'rMQRCode'];
-export const LINEAR_FORMATS: ReadInputBarcodeFormat[] = ['AllLinear'];
-export const SCAN_FORMATS: ReadInputBarcodeFormat[] = [...QR_FORMATS, ...LINEAR_FORMATS];
+export const BARCODE_FORMATS: ReadInputBarcodeFormat[] = ['AllLinear', 'DataMatrix'];
+export const SCAN_FORMATS: ReadInputBarcodeFormat[] = [...QR_FORMATS, ...BARCODE_FORMATS];
 
 /** Decodes symbols with zxing-cpp (loaded on first use, served locally). */
 export async function readSymbols(

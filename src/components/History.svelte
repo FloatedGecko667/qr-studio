@@ -1,14 +1,23 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, untrack } from 'svelte';
   import { app } from '../lib/app.svelte';
   import { downloadBlob } from '../lib/export/download';
   import { t } from '../lib/i18n/index.svelte';
   import { PAYLOAD_KINDS, type PayloadKind } from '../lib/payload';
+  import { MODES, type Mode } from '../lib/settings';
   import { exportHistory, parseHistory } from '../lib/storage/historyJson';
   import { addHistory, clearHistory, deleteHistory, HISTORY_LIMIT, listHistory, type HistoryEntry } from '../lib/storage/records';
 
-  let { onRestore }: { onRestore: () => void } = $props();
+  let { onRestore, mode }: { onRestore: (mode: Mode) => void; mode: Mode } = $props();
   let entries: HistoryEntry[] = $state([]);
+  // Start with the current mode's entries; the filter is independent afterwards.
+  let filter = $state<'all' | Mode>(untrack(() => mode));
+  const MATRIX_TYPES = ['datamatrix', 'gs1-datamatrix'];
+  function modeOf(e: HistoryEntry): Mode {
+    if (e.kind === 'datamatrix' || (e.kind === 'barcode' && MATRIX_TYPES.includes(String(e.fields.type)))) return 'datamatrix';
+    return e.kind === 'barcode' ? 'barcode' : 'qr';
+  }
+  const shown = $derived(filter === 'all' ? entries : entries.filter((e) => modeOf(e) === filter));
   let message = $state('');
   let messageKind: 'ok' | 'error' = $state('ok');
 
@@ -17,10 +26,24 @@
   };
   onMount(refresh);
 
-  function restore(e: HistoryEntry) {
+  async function restore(e: HistoryEntry) {
+    const mode = modeOf(e);
+    if (mode !== 'qr') {
+      const { barcode, matrixCode } = await import('../lib/barcode/state.svelte');
+      (mode === 'datamatrix' ? matrixCode : barcode).restore(e.fields, e.symbol, e.style);
+      onRestore(mode);
+      return;
+    }
     if (!(PAYLOAD_KINDS as readonly string[]).includes(e.kind)) return;
     app.restore(e.kind as PayloadKind, e.fields, e.symbol, e.style, e.logoDataUrl);
-    onRestore();
+    onRestore('qr');
+  }
+
+  function kindLabel(e: HistoryEntry): string {
+    const mode = modeOf(e);
+    if (mode === 'qr') return `${t('mode.qr')} · ${t(`kind.${e.kind}`)}`;
+    const label = typeof e.fields.label === 'string' ? e.fields.label.slice(0, 40) : '';
+    return `${t(`mode.${mode}`)} · ${label}`;
   }
 
   async function remove(id: string) {
@@ -67,18 +90,25 @@
     </label>
     <button type="button" class="btn small danger" disabled={!entries.length} onclick={clearAll}>{t('history.clear')}</button>
   </div>
+  <div class="segmented" role="group" aria-label={t('history.filter')}>
+    {#each ['all', ...MODES] as const as f (f)}
+      <button type="button" aria-pressed={filter === f} onclick={() => (filter = f)}>
+        {f === 'all' ? t('history.filterAll') : t(`mode.${f}`)}
+      </button>
+    {/each}
+  </div>
   <div role="status" aria-live="polite">
     {#if message}<p class="msg {messageKind}">{message}</p>{/if}
   </div>
 
-  {#if entries.length === 0}
+  {#if shown.length === 0}
     <p class="muted">{t('history.empty')}</p>
   {:else}
     <ul>
-      {#each entries as e (e.id)}
+      {#each shown as e (e.id)}
         <li>
           <div class="meta">
-            <span class="kind">{t(`kind.${e.kind}`)}</span>
+            <span class="kind">{kindLabel(e)}</span>
             <time datetime={new Date(e.createdAt).toISOString()}>{new Date(e.createdAt).toLocaleString()}</time>
           </div>
           <div class="summary">{e.summary}</div>

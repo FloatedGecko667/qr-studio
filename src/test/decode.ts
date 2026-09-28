@@ -9,7 +9,12 @@ prepareZXingModule({
 });
 
 /** Rasterizes a symbol (with quiet zone) and decodes it with zxing-cpp. */
-export async function decodeSymbol(sym: EncodedSymbol, scale = 4, quiet = 4): Promise<ReadResult[]> {
+export async function decodeSymbol(
+  sym: Pick<EncodedSymbol, 'width' | 'height' | 'modules'>,
+  scale = 4,
+  quiet = 4,
+  formats: NonNullable<Parameters<typeof readBarcodesFromImageData>[1]>['formats'] = ['QRCode', 'MicroQRCode', 'rMQRCode'],
+): Promise<ReadResult[]> {
   const w = (sym.width + quiet * 2) * scale;
   const h = (sym.height + quiet * 2) * scale;
   const data = new Uint8ClampedArray(w * h * 4).fill(255);
@@ -25,7 +30,7 @@ export async function decodeSymbol(sym: EncodedSymbol, scale = 4, quiet = 4): Pr
     }
   }
   return readBarcodesFromImageData({ data, width: w, height: h, colorSpace: 'srgb' } as ImageData, {
-    formats: ['QRCode', 'MicroQRCode', 'rMQRCode'],
+    formats,
     tryHarder: true,
     maxNumberOfSymbols: 1,
   });

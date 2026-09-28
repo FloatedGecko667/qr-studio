@@ -10,7 +10,7 @@ const bwip = createRequire(import.meta.url)('bwip-js') as { raw: (o: Record<stri
 
 function encode(type: BarcodeType, value: string, opts: Partial<BarcodeOptions> = {}): LinearSymbol {
   const r = encodeBarcode(type, value, { ...DEFAULT_BARCODE_OPTIONS, ...opts });
-  if (!r.ok) throw new Error(`${type} ${value}: ${r.error}`);
+  if (!r.ok || r.symbol.kind !== 'linear') throw new Error(`${type} ${value}: ${r.ok ? 'not linear' : r.error}`);
   return r.symbol;
 }
 

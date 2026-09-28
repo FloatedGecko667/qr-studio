@@ -11,17 +11,31 @@
   import UpdatePrompt from './components/UpdatePrompt.svelte';
   import { app } from './lib/app.svelte';
   import { t } from './lib/i18n/index.svelte';
-  import type { Locale, Mode, Theme } from './lib/settings';
+  import { MODES, type Locale, type Mode, type Theme } from './lib/settings';
   import { applyTheme } from './lib/theme';
 
   type Tab = 'generate' | 'batch' | 'scan' | 'history';
   const TABS: Record<Mode, Tab[]> = {
     qr: ['generate', 'batch', 'scan', 'history'],
-    barcode: ['generate', 'batch', 'scan'],
+    barcode: ['generate', 'batch', 'scan', 'history'],
+    datamatrix: ['generate', 'batch', 'scan', 'history'],
   };
   let tab: Tab = $state('generate');
   let licensesOpen = $state(false);
   let ribbonHeight = $state(0);
+  let settingsOpen = $state(false);
+  let settingsEl: HTMLDetailsElement | undefined = $state();
+
+  // Close the settings menu on an outside click or Escape.
+  function onWindowPointer(e: PointerEvent) {
+    if (settingsOpen && settingsEl && !settingsEl.contains(e.target as Node)) settingsOpen = false;
+  }
+  function onWindowKey(e: KeyboardEvent) {
+    if (settingsOpen && e.key === 'Escape') {
+      settingsOpen = false;
+      settingsEl?.querySelector('summary')?.focus();
+    }
+  }
   const mode = $derived(app.settings.mode);
   const tabs = $derived(TABS[mode]);
 
@@ -60,47 +74,62 @@
   }
 </script>
 
+<svelte:window onpointerdown={onWindowPointer} onkeydown={onWindowKey} />
+
 <div class="ribbon" bind:clientHeight={ribbonHeight}>
   <header>
     <div class="brand">
       <svg viewBox="0 0 7 7" aria-hidden="true" class="logo"><path d="M0 0h3v3H0zM4 0h3v3H4zM0 4h3v3H0zM4 4h1v1H4zM6 4h1v1H6zM5 5h1v1H5zM4 6h1v1H4zM6 6h1v1H6z" fill="currentColor" /></svg>
-      <div>
+      <div class="titles">
         <h1>{t('app.title')}</h1>
         <p class="muted tagline">{t('app.tagline')}</p>
       </div>
     </div>
-    <div class="row controls">
-      <label class="field inline">
-        <span>{t('theme.label')}</span>
-        <select value={app.settings.theme} onchange={(e) => setTheme(e.currentTarget.value as Theme)}>
-          <option value="system">{t('theme.system')}</option>
-          <option value="light">{t('theme.light')}</option>
-          <option value="dark">{t('theme.dark')}</option>
-        </select>
-      </label>
-      <label class="field inline">
-        <span>{t('locale.label')}</span>
-        <select value={app.settings.locale} onchange={(e) => setLocale(e.currentTarget.value as Locale)}>
-          <option value="ja">日本語</option>
-          <option value="en">English</option>
-        </select>
-      </label>
-    </div>
-  </header>
 
-  <nav aria-label={t('app.title')}>
     <div class="modes" role="group" aria-label={t('mode.label')}>
-      {#each ['qr', 'barcode'] as const as m (m)}
+      {#each MODES as m (m)}
         <button type="button" aria-pressed={mode === m} onclick={() => setMode(m)}>
           {#if m === 'qr'}
             <svg viewBox="0 0 7 7" aria-hidden="true"><path d="M0 0h3v3H0zM4 0h3v3H4zM0 4h3v3H0zM5 5h2v2H5z" fill="currentColor" /></svg>
-          {:else}
+          {:else if m === 'barcode'}
             <svg viewBox="0 0 9 7" aria-hidden="true"><path d="M0 0h1v7H0zM2 0h.5v7H2zM3.5 0h1.5v7H3.5zM6 0h.5v7H6zM7.5 0h1.5v7H7.5z" fill="currentColor" /></svg>
+          {:else}
+            <svg viewBox="0 0 7 7" aria-hidden="true"><path d="M0 0h1v7H0zM0 6h7v1H0zM2 0h1v1H2zM4 0h1v1H4zM6 0h1v1H6zM6 2h1v1H6zM6 4h1v1H6zM2 2h2v2H2zM4 4h1v1H4z" fill="currentColor" /></svg>
           {/if}
-          {t(`mode.${m}`)}
+          <span>{t(`mode.${m}`)}</span>
         </button>
       {/each}
     </div>
+
+    <details class="settings" bind:open={settingsOpen} bind:this={settingsEl}>
+      <summary aria-label={t('settings.label')} title={t('settings.label')}>
+        <svg viewBox="0 0 24 24" aria-hidden="true"
+          ><path
+            fill="currentColor"
+            d="M19.4 13a7.6 7.6 0 0 0 0-2l2.1-1.6-2-3.5-2.5 1a7.4 7.4 0 0 0-1.7-1L15 3h-4l-.4 2.9a7.4 7.4 0 0 0-1.7 1l-2.5-1-2 3.5L6.6 11a7.6 7.6 0 0 0 0 2l-2.1 1.6 2 3.5 2.5-1a7.4 7.4 0 0 0 1.7 1L11 21h4l.4-2.9a7.4 7.4 0 0 0 1.7-1l2.5 1 2-3.5zM13 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z" /></svg
+        >
+      </summary>
+      <div class="menu stack">
+        <label class="field">
+          <span>{t('theme.label')}</span>
+          <select value={app.settings.theme} onchange={(e) => setTheme(e.currentTarget.value as Theme)}>
+            <option value="system">{t('theme.system')}</option>
+            <option value="light">{t('theme.light')}</option>
+            <option value="dark">{t('theme.dark')}</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>{t('locale.label')}</span>
+          <select value={app.settings.locale} onchange={(e) => setLocale(e.currentTarget.value as Locale)}>
+            <option value="ja">日本語</option>
+            <option value="en">English</option>
+          </select>
+        </label>
+      </div>
+    </details>
+  </header>
+
+  <nav aria-label={t(`mode.${mode}`)}>
     <div class="tabs">
       {#each tabs as id (id)}
         <button type="button" aria-current={tab === id ? 'page' : undefined} class:active={tab === id} onclick={() => (tab = id)}>
@@ -112,25 +141,28 @@
 </div>
 
 <main>
-  {#if mode === 'barcode' && tab !== 'scan'}
+  {#if mode !== 'qr' && (tab === 'generate' || tab === 'batch')}
     {#await loadBarcodeUi()}
       <p class="muted loading">…</p>
     {:then ui}
-      {#if tab === 'batch'}
-        <div class="narrow"><ui.BarcodeBatch /></div>
-      {:else}
-        <div class="layout">
-          <div class="col inputs">
-            <ui.BarcodeForm />
-            <ui.BarcodeStyle />
-          </div>
-          <div class="col side">
-            <div class="preview-slot">
-              <ui.BarcodePreview />
+      {@const code = mode === 'datamatrix' ? ui.matrixCode : ui.barcode}
+      {#key mode}
+        {#if tab === 'batch'}
+          <div class="narrow"><ui.BarcodeBatch {code} /></div>
+        {:else}
+          <div class="layout">
+            <div class="col inputs">
+              <ui.BarcodeForm {code} />
+              <ui.BarcodeStyle {code} />
+            </div>
+            <div class="col side">
+              <div class="preview-slot">
+                <ui.BarcodePreview {code} />
+              </div>
             </div>
           </div>
-        </div>
-      {/if}
+        {/if}
+      {/key}
     {:catch}
       <p class="msg error">{t('app.loadError')}</p>
     {/await}
@@ -153,7 +185,14 @@
   {:else if tab === 'scan'}
     <div class="narrow"><Scanner /></div>
   {:else}
-    <div class="narrow"><History onRestore={() => (tab = 'generate')} /></div>
+    {#key mode}
+      <div class="narrow"><History
+        {mode}
+        onRestore={(m) => {
+          setMode(m);
+          tab = 'generate';
+        }} /></div>
+    {/key}
   {/if}
 </main>
 
@@ -178,11 +217,9 @@
   }
   header {
     display: flex;
-    justify-content: space-between;
     align-items: center;
-    flex-wrap: wrap;
-    gap: 8px 12px;
-    padding: 10px max(16px, env(safe-area-inset-left)) 6px;
+    gap: 8px 16px;
+    padding: 8px max(16px, env(safe-area-inset-left)) 4px;
     max-width: 1280px;
     margin: 0 auto;
   }
@@ -190,35 +227,18 @@
     display: flex;
     align-items: center;
     gap: 10px;
+    flex: none;
   }
   .brand p {
     margin: 0;
   }
   .logo {
-    width: 32px;
-    height: 32px;
+    width: 30px;
+    height: 30px;
     color: var(--accent);
   }
   h1 {
-    font-size: 20px;
-  }
-  .inline {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-  }
-  .inline select {
-    width: auto;
-  }
-  nav {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    max-width: 1280px;
-    margin: 0 auto;
-    padding: 0 16px;
-    overflow-x: auto;
-    scrollbar-width: none;
+    font-size: 19px;
   }
   .modes {
     display: inline-flex;
@@ -228,6 +248,7 @@
     border-radius: 10px;
     background: var(--surface-2);
     border: 1px solid var(--border);
+    margin-left: auto;
   }
   .modes button {
     display: inline-flex;
@@ -245,21 +266,67 @@
   .modes svg {
     width: 14px;
     height: 14px;
+    flex: none;
   }
   .modes button[aria-pressed='true'] {
     background: var(--accent);
     color: var(--accent-text);
     font-weight: 700;
   }
+  .settings {
+    position: relative;
+    flex: none;
+  }
+  .settings summary {
+    list-style: none;
+    display: grid;
+    place-items: center;
+    width: 38px;
+    height: 38px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text-2);
+    cursor: pointer;
+  }
+  .settings summary::-webkit-details-marker {
+    display: none;
+  }
+  .settings summary svg {
+    width: 20px;
+    height: 20px;
+  }
+  .settings[open] summary {
+    color: var(--accent);
+    border-color: var(--accent);
+  }
+  .menu {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 6px);
+    width: 220px;
+    padding: 12px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgb(0 0 0 / 18%);
+    z-index: 1;
+  }
+  nav {
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 0 16px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
   .tabs {
     display: flex;
-    flex: none;
     gap: 2px;
   }
   .tabs button {
     border: 0;
     background: none;
-    padding: 12px 12px 10px;
+    padding: 10px 12px 8px;
     cursor: pointer;
     color: var(--text-2);
     border-bottom: 2px solid transparent;
@@ -328,53 +395,54 @@
     font-size: 12px;
   }
 
-  /* Phones: two compact rows (title + settings, then mode + tabs). */
-  @media (max-width: 600px) {
-    header {
-      flex-wrap: nowrap;
-      padding: 8px 12px 4px;
-    }
-    .brand {
-      flex: none;
-      gap: 8px;
-    }
-    .tagline,
-    .controls .inline > span {
+  @media (max-width: 760px) {
+    .tagline {
       display: none;
     }
-    h1 {
-      font-size: 16px;
+  }
+
+  /* Phones: two compact rows (logo, mode tabs and settings; then the tabs). */
+  @media (max-width: 600px) {
+    header {
+      gap: 8px;
+      padding: 8px 12px 2px;
+    }
+    .titles {
+      display: none;
     }
     .logo {
-      width: 24px;
-      height: 24px;
+      width: 26px;
+      height: 26px;
     }
-    .controls {
-      flex-wrap: nowrap;
-      gap: 6px;
+    .modes {
+      flex: 1;
       min-width: 0;
+      margin-left: 0;
     }
-    .inline select {
-      min-height: 32px;
-      max-width: 34vw;
+    .modes button {
+      flex: 1 1 auto;
+      justify-content: center;
+      min-width: 0;
       padding: 4px 6px;
       font-size: 13px;
-      text-overflow: ellipsis;
     }
-    nav {
-      gap: 8px;
-      padding: 0 12px;
+    .modes button span {
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
     .modes svg {
       display: none;
     }
-    .modes button {
-      padding: 4px 9px;
-      font-size: 13px;
+    nav {
+      padding: 0 12px;
     }
     .tabs button {
-      padding: 11px 7px 9px;
+      flex: 1;
+      padding: 10px 6px 8px;
       font-size: 13px;
+    }
+    .tabs {
+      width: 100%;
     }
   }
 

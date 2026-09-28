@@ -1,13 +1,15 @@
 <script lang="ts">
-  import { BARCODE_LABELS, encodeBarcode, SAMPLE_VALUES } from '../lib/barcode';
+  import { BARCODE_LABELS, encodeBarcode, IS_MATRIX, SAMPLE_VALUES } from '../lib/barcode';
   import { renderBarcodeSvg } from '../lib/barcode/render';
   import { barcodeSize } from '../lib/barcode/settings';
-  import { barcode } from '../lib/barcode/state.svelte';
+  import type { BarcodeState } from '../lib/barcode/state.svelte';
   import { BATCH_LIMIT, decodeCsv, itemsFromCsv, itemsFromLines, serialLines, type BatchItem, type SerialSpec } from '../lib/batch';
   import { exportSized, extensionFor } from '../lib/compose';
   import { downloadBlob, zipFiles } from '../lib/export/download';
   import { formatNumber, t } from '../lib/i18n/index.svelte';
   import { fontDataUrl } from '../lib/render/font';
+
+  let { code }: { code: BarcodeState } = $props();
 
   let mode: 'lines' | 'csv' = $state('lines');
   let input = $state('');
@@ -19,9 +21,11 @@
   let failures: string[] = $state([]);
   let serial: SerialSpec = $state({ prefix: '', suffix: '', start: 1, step: 1, count: 10, digits: 4 });
 
-  const parsed = $derived(mode === 'lines' ? itemsFromLines(input, 'barcode') : itemsFromCsv(input, 'barcode'));
+  const matrix = $derived(IS_MATRIX.has(code.settings.type));
+  const prefix = $derived(matrix ? 'datamatrix' : 'barcode');
+  const parsed = $derived(mode === 'lines' ? itemsFromLines(input, prefix) : itemsFromCsv(input, prefix));
   const items: BatchItem[] = $derived(Array.isArray(parsed) ? parsed : []);
-  const sample = $derived(SAMPLE_VALUES[barcode.settings.type]);
+  const sample = $derived(SAMPLE_VALUES[code.settings.type]);
 
   async function loadCsv(e: Event) {
     const file = (e.currentTarget as HTMLInputElement).files?.[0];
@@ -43,7 +47,7 @@
     total = items.length;
     result = '';
     failures = [];
-    const { type, options, style, output } = $state.snapshot(barcode.settings);
+    const { type, options, style, output } = $state.snapshot(code.settings);
     const font = style.showText && style.font === 'jetbrains' ? await fontDataUrl() : null;
     const files: { name: string; blob: Blob }[] = [];
     for (const [i, item] of items.entries()) {
@@ -54,7 +58,7 @@
       } else {
         try {
           const svg = renderBarcodeSvg(r.symbol, style, font);
-          const blob = await exportSized(svg.svg, barcodeSize(svg, output), output.format, output.unit === 'mm' ? output.dpi : undefined, output.quality, style.bg);
+          const blob = await exportSized(svg.svg, barcodeSize(svg, output, r.symbol.kind), output.format, output.unit === 'mm' ? output.dpi : undefined, output.quality, style.bg);
           files.push({ name: `${item.filename}.${extensionFor(output)}`, blob });
         } catch (e) {
           failures.push(t('batch.failedRow', { row: item.row, reason: t(e instanceof RangeError ? 'output.tooLarge' : 'verify.error') }));
@@ -67,7 +71,7 @@
     if (cancelled) {
       result = t('batch.cancelled');
     } else {
-      if (files.length) downloadBlob(await zipFiles(files), `barcode-batch-${files.length}.zip`);
+      if (files.length) downloadBlob(await zipFiles(files), `${prefix}-batch-${files.length}.zip`);
       result = t('batch.done', { ok: files.length, failed: failures.length });
     }
     running = false;
@@ -75,9 +79,9 @@
 </script>
 
 <section class="card stack" aria-labelledby="barcode-batch-heading">
-  <h2 id="barcode-batch-heading">{t('barcode.batch.title')}</h2>
+  <h2 id="barcode-batch-heading">{t(matrix ? 'barcode.batch.titleMatrix' : 'barcode.batch.title')}</h2>
   <p class="muted">{t('barcode.batch.hint', { max: formatNumber(BATCH_LIMIT) })}</p>
-  <p class="current">{t('barcode.batch.current', { type: BARCODE_LABELS[barcode.settings.type] })}</p>
+  <p class="current">{t('barcode.batch.current', { type: BARCODE_LABELS[code.settings.type] })}</p>
 
   <details class="serial">
     <summary>{t('barcode.batch.serial')}</summary>

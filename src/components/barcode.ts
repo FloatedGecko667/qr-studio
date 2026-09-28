@@ -3,3 +3,4 @@ export { default as BarcodeBatch } from './BarcodeBatch.svelte';
 export { default as BarcodeForm } from './BarcodeForm.svelte';
 export { default as BarcodePreview } from './BarcodePreview.svelte';
 export { default as BarcodeStyle } from './BarcodeStyle.svelte';
+export { barcode, matrixCode } from '../lib/barcode/state.svelte';

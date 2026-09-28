@@ -3,17 +3,28 @@ import { codabar } from './codabar';
 import { code128Widths, textTokens, type Token } from './code128';
 import { code39, decodeFullAscii } from './code39';
 import { code93 } from './code93';
+import { dmSizeLabel, encodeDataMatrix, type DmToken } from './datamatrix';
 import { ean13, ean8, upca, upce } from './ean';
 import { itf, itf14, itfWidths } from './itf';
 import { msiData, msiWidths, pharmacodeWidths } from './msi';
 import { digitsOnly } from './checksum';
-import { BarcodeError, widthsToBars, type BarcodeOptions, type BarcodeType, type EncodeResult, type LinearSymbol } from './types';
+import {
+  BarcodeError,
+  widthsToBars,
+  type BarcodeOptions,
+  type BarcodeSymbol,
+  type BarcodeType,
+  type EncodeResult,
+  type LinearSymbol,
+  type MatrixSymbol,
+} from './types';
 
 export * from './types';
 
 export const BARCODE_GROUPS: { id: string; types: BarcodeType[] }[] = [
   { id: 'retail', types: ['ean13', 'ean8', 'upca', 'upce'] },
   { id: 'industrial', types: ['code128', 'gs1-128', 'code39', 'code93', 'itf', 'itf14', 'codabar'] },
+  { id: '2d', types: ['datamatrix', 'gs1-datamatrix'] },
   { id: 'special', types: ['code128a', 'code128b', 'code128c', 'msi', 'pharmacode'] },
 ];
 
@@ -34,6 +45,8 @@ export const BARCODE_LABELS: Record<BarcodeType, string> = {
   codabar: 'NW-7 (Codabar)',
   msi: 'MSI',
   pharmacode: 'Pharmacode',
+  datamatrix: 'Data Matrix',
+  'gs1-datamatrix': 'GS1 DataMatrix',
 };
 
 export const SAMPLE_VALUES: Record<BarcodeType, string> = {
@@ -53,7 +66,15 @@ export const SAMPLE_VALUES: Record<BarcodeType, string> = {
   codabar: 'A123456A',
   msi: '1234567',
   pharmacode: '1234',
+  datamatrix: 'QR Studio · Data Matrix 2026',
+  'gs1-datamatrix': '(01)04912345678904(17)261231(10)ABC123',
 };
+
+/** 2D symbologies rendered as a module grid. */
+export const IS_MATRIX: ReadonlySet<BarcodeType> = new Set(['datamatrix', 'gs1-datamatrix']);
+
+/** Longest value accepted in the input field. */
+export const maxValueLength = (type: BarcodeType) => (IS_MATRIX.has(type) ? 3000 : 200);
 
 /** Types that take an EAN/UPC add-on. */
 export const HAS_ADDON: ReadonlySet<BarcodeType> = new Set(['ean13', 'ean8', 'upca', 'upce']);
@@ -62,7 +83,7 @@ export const HAS_RATIO: ReadonlySet<BarcodeType> = new Set(['code39', 'itf', 'it
 
 function plain(widths: number[], hrt: string, expected: string[], quiet: [number, number] = [10, 10]): LinearSymbol {
   const { bars, end } = widthsToBars(widths);
-  return { width: end, bars, layout: 'plain', hrt, parts: [], quiet, expected, dataLength: hrt.length };
+  return { kind: 'linear', width: end, bars, layout: 'plain', hrt, parts: [], quiet, expected, dataLength: hrt.length };
 }
 
 /** Printable form of Code 128 text (control characters shown as spaces). */
@@ -89,7 +110,44 @@ function encodeGs1(value: string): { symbol: LinearSymbol; warnings: string[] } 
   return { symbol: plain(widths, hrt, [hrt, p.text!]), warnings: p.warnings };
 }
 
-function encodeSymbol(type: BarcodeType, value: string, o: BarcodeOptions): { symbol: LinearSymbol; warnings: string[] } {
+function matrix(tokens: DmToken[], o: BarcodeOptions, hrt: string, expected: string[], eci?: number): MatrixSymbol {
+  const r = encodeDataMatrix(tokens, { shape: o.dmShape, size: o.dmSize, eci });
+  return {
+    kind: 'matrix',
+    width: r.size.cols,
+    height: r.size.rows,
+    modules: r.modules,
+    hrt,
+    quiet: [2, 2],
+    expected,
+    dataLength: Array.from(hrt).length,
+    sizeLabel: dmSizeLabel(r.size),
+    usedCodewords: r.used,
+    dataCodewords: r.size.dataCw,
+  };
+}
+
+/**
+ * ASCII needs no ECI. Other Latin-1 text is marked with ECI 3 so readers do not guess the
+ * character set; anything else is UTF-8 with ECI 26.
+ */
+function encodeDm(value: string, o: BarcodeOptions): MatrixSymbol {
+  const codes = Array.from(value, (ch) => ch.codePointAt(0)!);
+  if (codes.every((c) => c < 0x80)) return matrix(codes, o, printable(value), [value]);
+  if (codes.every((c) => c <= 0xff)) return matrix(codes, o, printable(value), [value], 3);
+  return matrix(Array.from(new TextEncoder().encode(value)), o, printable(value), [value], 26);
+}
+
+function encodeGs1Dm(value: string, o: BarcodeOptions): { symbol: MatrixSymbol; warnings: string[] } {
+  const p = buildGs1({ value });
+  if (p.errors.length) throw new BarcodeError(p.errors[0]);
+  const tokens: DmToken[] = ['FNC1'];
+  for (const ch of p.text!) tokens.push(ch === '\x1d' ? 'FNC1' : ch.charCodeAt(0));
+  const hrt = value.replace(/\s+/g, '');
+  return { symbol: matrix(tokens, o, hrt, [hrt, p.text!]), warnings: p.warnings };
+}
+
+function encodeSymbol(type: BarcodeType, value: string, o: BarcodeOptions): { symbol: BarcodeSymbol; warnings: string[] } {
   switch (type) {
     case 'code128':
     case 'code128a':
@@ -134,6 +192,10 @@ function encodeSymbol(type: BarcodeType, value: string, o: BarcodeOptions): { sy
       const data = msiData(value, o.msiCheck);
       return { symbol: plain(msiWidths(data), data, [], [12, 12]), warnings: [] };
     }
+    case 'datamatrix':
+      return { symbol: encodeDm(value, o), warnings: [] };
+    case 'gs1-datamatrix':
+      return encodeGs1Dm(value, o);
     case 'pharmacode': {
       const widths = pharmacodeWidths(value);
       return { symbol: plain(widths, String(Number(digitsOnly(value))), [], [6, 6]), warnings: [] };
@@ -142,7 +204,8 @@ function encodeSymbol(type: BarcodeType, value: string, o: BarcodeOptions): { sy
 }
 
 export function encodeBarcode(type: BarcodeType, value: string, options: BarcodeOptions): EncodeResult {
-  if (value.trim() === '') return { ok: false, error: 'barcode.error.empty' };
+  // Data Matrix can carry whitespace-only data; linear symbologies cannot sensibly.
+  if (IS_MATRIX.has(type) ? value === '' : value.trim() === '') return { ok: false, error: 'barcode.error.empty' };
   try {
     const { symbol, warnings } = encodeSymbol(type, value, options);
     return { ok: true, symbol, warnings };

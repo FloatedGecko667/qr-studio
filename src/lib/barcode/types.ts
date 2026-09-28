@@ -14,10 +14,13 @@ export type BarcodeType =
   | 'code93'
   | 'codabar'
   | 'msi'
-  | 'pharmacode';
+  | 'pharmacode'
+  | 'datamatrix'
+  | 'gs1-datamatrix';
 
 export type MsiCheck = 'none' | 'mod10' | 'mod11' | 'mod1010' | 'mod1110';
 export type CodabarGuard = 'A' | 'B' | 'C' | 'D';
+export type DmShape = 'auto' | 'square' | 'rect';
 
 export interface BarcodeOptions {
   /** Optional check character: Code 39 (mod 43) and ITF (mod 10). */
@@ -31,6 +34,10 @@ export interface BarcodeOptions {
   codabarStop: CodabarGuard;
   /** EAN/UPC 2- or 5-digit add-on ('' = none). */
   addon: string;
+  /** Data Matrix: allowed shapes when the size is automatic. */
+  dmShape: DmShape;
+  /** Data Matrix: 'auto' or a fixed size such as "16x16". */
+  dmSize: string;
 }
 
 export const DEFAULT_BARCODE_OPTIONS: BarcodeOptions = {
@@ -41,6 +48,8 @@ export const DEFAULT_BARCODE_OPTIONS: BarcodeOptions = {
   codabarStart: 'A',
   codabarStop: 'A',
   addon: '',
+  dmShape: 'square',
+  dmSize: 'auto',
 };
 
 export type BarKind = 'bar' | 'guard' | 'addon';
@@ -65,6 +74,7 @@ export interface TextPart {
 }
 
 export interface LinearSymbol {
+  kind: 'linear';
   /** Width of the bar pattern in modules (without quiet zones). */
   width: number;
   bars: Bar[];
@@ -82,7 +92,26 @@ export interface LinearSymbol {
   dataLength: number;
 }
 
-export type EncodeResult = { ok: true; symbol: LinearSymbol; warnings: string[] } | { ok: false; error: string; params?: Record<string, string | number> };
+/** 2D symbol (Data Matrix) as a module grid. */
+export interface MatrixSymbol {
+  kind: 'matrix';
+  width: number;
+  height: number;
+  /** Row-major, 1 = dark. */
+  modules: Uint8Array;
+  hrt: string;
+  quiet: [number, number];
+  expected: string[];
+  dataLength: number;
+  /** Symbol size, e.g. "16x16". */
+  sizeLabel: string;
+  usedCodewords: number;
+  dataCodewords: number;
+}
+
+export type BarcodeSymbol = LinearSymbol | MatrixSymbol;
+
+export type EncodeResult = { ok: true; symbol: BarcodeSymbol; warnings: string[] } | { ok: false; error: string; params?: Record<string, string | number> };
 
 export class BarcodeError extends Error {
   constructor(
