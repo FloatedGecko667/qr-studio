@@ -246,6 +246,7 @@
           <option value="svg">SVG</option>
           <option value="jpeg">JPEG</option>
           <option value="webp">WebP</option>
+          <option value="pdf">PDF</option>
         </select>
       </label>
       {#if out.unit === 'px'}
@@ -276,6 +277,7 @@
         </label>
       {/if}
     </div>
+    {#if out.format === 'pdf'}<p class="muted">{t(out.unit === 'mm' ? 'output.pdfNote' : 'output.pdfNotePx')}</p>{/if}
     {#if size}
       <p class="muted">
         {t('output.size', { w: formatNumber(size.pxWidth), h: formatNumber(size.pxHeight) })}

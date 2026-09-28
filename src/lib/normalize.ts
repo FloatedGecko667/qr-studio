@@ -73,7 +73,7 @@ export function normalizeOutput(s: OutputSettings): OutputSettings {
     modulePx: Math.round(clamp(s.modulePx, LIMITS.modulePx)),
     sizeMm: clamp(s.sizeMm, LIMITS.sizeMm),
     dpi: Math.round(clamp(s.dpi, LIMITS.dpi)),
-    format: oneOf(s.format, ['png', 'jpeg', 'webp', 'svg'] as const, DEFAULT_OUTPUT.format),
+    format: oneOf(s.format, ['png', 'jpeg', 'webp', 'svg', 'pdf'] as const, DEFAULT_OUTPUT.format),
     quality: clamp(s.quality, [0.5, 1]),
   };
 }

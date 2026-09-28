@@ -1,3 +1,4 @@
+import { readFile } from 'node:fs/promises';
 import { expect, test } from '@playwright/test';
 import { openApp, preview, switchMode } from './helpers.ts';
 
@@ -15,6 +16,28 @@ test.describe('generate', () => {
     const download = page.waitForEvent('download');
     await card.getByRole('button', { name: '保存', exact: true }).click();
     expect((await download).suggestedFilename()).toMatch(/^qr-.+\.png$/);
+  });
+
+  test('PDF: QR and barcode download as print-size PDFs', async ({ page }) => {
+    await openApp(page);
+    const card = preview(page);
+    await card.getByRole('button', { name: 'mm' }).click();
+    await card.getByLabel('形式').selectOption('pdf');
+    let download = page.waitForEvent('download');
+    await card.getByRole('button', { name: '保存', exact: true }).click();
+    let file = await download;
+    expect(file.suggestedFilename()).toMatch(/\.pdf$/);
+    const pdf = (await readFile((await file.path())!)).toString('latin1');
+    expect(pdf.startsWith('%PDF-1.4')).toBe(true);
+    // 30 mm default = 85.0394 pt.
+    expect(pdf).toMatch(/\/MediaBox \[0 0 8[45]\.\d+ 8[45]\.\d+\]/);
+
+    await switchMode(page, 'バーコード');
+    await card.getByLabel('形式').selectOption('pdf');
+    download = page.waitForEvent('download');
+    await card.getByRole('button', { name: '保存', exact: true }).click();
+    file = await download;
+    expect(file.suggestedFilename()).toMatch(/\.pdf$/);
   });
 
   test('QR code: fixed version that is too small offers suggestions', async ({ page }) => {

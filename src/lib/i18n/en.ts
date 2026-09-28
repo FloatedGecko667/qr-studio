@@ -253,6 +253,8 @@ export const en: Record<keyof typeof ja, string> = {
   'output.tooLarge': 'Image too large (max about 16.7 MP). Reduce size or resolution',
   'output.format': 'Format',
   'output.quality': 'Quality',
+  'output.pdfNote': 'The PDF embeds the image on a page of exactly the set size (one per page).',
+  'output.pdfNotePx': 'PDF page size assumes 96 dpi. Switch the unit to mm for print.',
   'output.download': 'Download',
   'output.downloadAll': 'Download all (ZIP)',
   'output.downloadSheet': 'Download as one sheet',

@@ -1,4 +1,4 @@
-import type { RasterFormat } from '../render/raster';
+import type { OutputFormat } from '../render/raster';
 import type { SvgResult } from '../render/svg';
 import { mergeKnown } from '../settings';
 import { DM_SIZES, dmSizeLabel } from './datamatrix';
@@ -16,7 +16,7 @@ export interface BarcodeOutput {
   matrixModulePx: number;
   matrixModuleMm: number;
   dpi: number;
-  format: RasterFormat | 'svg';
+  format: OutputFormat;
   quality: number;
 }
 
@@ -102,7 +102,7 @@ export function normalizeBarcodeOutput(o: BarcodeOutput): BarcodeOutput {
     matrixModulePx: Math.round(clamp(o.matrixModulePx, L.matrixModulePx)),
     matrixModuleMm: round(clamp(o.matrixModuleMm, L.moduleMm), 0.001),
     dpi: Math.round(clamp(o.dpi, L.dpi)),
-    format: oneOf(o.format, ['png', 'svg', 'jpeg', 'webp'] as const, 'png'),
+    format: oneOf(o.format, ['png', 'svg', 'jpeg', 'webp', 'pdf'] as const, 'png'),
     quality: clamp(o.quality, [0.5, 1]),
   };
 }

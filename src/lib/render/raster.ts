@@ -1,6 +1,8 @@
 import { withPngDpi } from './png';
 
 export type RasterFormat = 'png' | 'jpeg' | 'webp';
+/** Download formats. PDF embeds the raster image at its printed size. */
+export type OutputFormat = RasterFormat | 'svg' | 'pdf';
 
 /** Safari's canvas area limit; larger requests fail silently there. */
 export const MAX_CANVAS_PIXELS = 16_777_216;

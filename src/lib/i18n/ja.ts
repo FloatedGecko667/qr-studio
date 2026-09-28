@@ -251,6 +251,8 @@ export const ja = {
   'output.tooLarge': '画像が大きすぎます（上限約1,677万ピクセル）。サイズか解像度を下げてください',
   'output.format': '形式',
   'output.quality': '画質',
+  'output.pdfNote': 'PDF は画像を指定した寸法どおりのページに埋め込みます（1枚1ページ）。',
+  'output.pdfNotePx': 'PDF のページ寸法は 96 dpi で換算します。印刷用には単位を mm にしてください。',
   'output.download': '保存',
   'output.downloadAll': 'すべてZIPで保存',
   'output.downloadSheet': '1枚にまとめて保存',

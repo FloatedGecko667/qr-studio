@@ -1,6 +1,6 @@
 import type { EcLevel, SymbolType } from './encoder';
 import type { Enclosure, LabelPosition } from './render/svg';
-import type { RasterFormat } from './render/raster';
+import type { OutputFormat } from './render/raster';
 import { DEFAULT_OPTIMIZE, type OptimizeSettings } from './optimize';
 import type { GeoProvider } from './geo/search';
 
@@ -39,7 +39,7 @@ export interface OutputSettings {
   modulePx: number;
   sizeMm: number;
   dpi: number;
-  format: RasterFormat | 'svg';
+  format: OutputFormat;
   quality: number;
 }
 
