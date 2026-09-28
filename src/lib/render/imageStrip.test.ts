@@ -39,7 +39,7 @@ describe('stripWebp', () => {
   it('returns input unchanged when there is nothing to strip or it is malformed', () => {
     const plain = riff(chunk('VP8 ', [1, 2]));
     expect(stripWebp(plain)).toBe(plain);
-    const broken = Uint8Array.from([...riff(chunk('VP8 ', [1, 2])).subarray(0, 14)]);
+    const broken = riff(chunk('VP8 ', [1, 2])).slice(0, 14);
     expect(stripWebp(broken)).toBe(broken);
   });
 });
