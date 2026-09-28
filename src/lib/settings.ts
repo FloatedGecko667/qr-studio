@@ -9,7 +9,8 @@ export interface SymbolSettings {
   mask: number | 'auto';
   charset: 'auto' | 'sjis' | 'utf8';
   eci: boolean;
-  structuredAppend: number;
+  /** Number of structured-append symbols (1 = off), or 'auto' for the fewest that fit. */
+  structuredAppend: number | 'auto';
 }
 
 export type OverlayKind = 'none' | 'logo' | 'text';
@@ -60,7 +61,7 @@ export const DEFAULT_SYMBOL: SymbolSettings = {
   mask: 'auto',
   charset: 'auto',
   eci: false,
-  structuredAppend: 1,
+  structuredAppend: 'auto',
 };
 
 export const DEFAULT_STYLE: StyleSettings = {

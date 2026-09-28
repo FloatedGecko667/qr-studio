@@ -128,6 +128,11 @@ export const en: Record<keyof typeof ja, string> = {
   'symbol.unsupported.fnc1': 'This type does not support GS1 (FNC1). Use Model 2 or rMQR',
   'symbol.unsupported.structured-append': 'This type does not support structured append',
 
+  'usage.chars': '{n} characters',
+  'usage.bytes': '{n} bytes',
+  'usage.current': 'Current symbol ({label})',
+  'usage.limit': 'Settings limit ({label})',
+  'usage.over': '{n} bits over the limit',
   'status.ok': '{label} · mask {mask} · {used}/{total} bits ({percent}%)',
   'status.okAppend': '{label} × {count} · parity 0x{parity}',
   'status.tooLong': 'Data does not fit (needs {need} bits, max {max})',

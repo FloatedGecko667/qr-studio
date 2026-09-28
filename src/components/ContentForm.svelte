@@ -3,6 +3,7 @@
   import { formatNumber, t } from '../lib/i18n/index.svelte';
   import { PAYLOAD_KINDS } from '../lib/payload';
   import { FORMS, type FieldDef } from '../lib/payload/forms';
+  import UsageMeter from './UsageMeter.svelte';
 
   const form = $derived(FORMS[app.kind]);
   const values = $derived(app.fields[app.kind]);
@@ -104,6 +105,8 @@
       {/if}
     {/each}
   </div>
+
+  <UsageMeter />
 
   {#each app.payload.errors as err (err)}
     <p class="msg error" role="alert">{t(err)}</p>

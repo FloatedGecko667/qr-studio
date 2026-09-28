@@ -126,6 +126,11 @@ export const ja = {
   'symbol.unsupported.fnc1': 'この種類はGS1（FNC1）に対応していません。モデル2かrMQRを選んでください',
   'symbol.unsupported.structured-append': 'この種類は連結に対応していません',
 
+  'usage.chars': '文字数 {n}',
+  'usage.bytes': '{n} バイト',
+  'usage.current': '現在のシンボル（{label}）',
+  'usage.limit': '設定での上限（{label}）',
+  'usage.over': '上限を {n} bit 超えています',
   'status.ok': '{label}・マスク{mask}・{used}/{total} bit（{percent}%）',
   'status.okAppend': '{label} × {count}枚・パリティ 0x{parity}',
   'status.tooLong': 'データが入りきりません（必要 {need} bit / 最大 {max} bit）',

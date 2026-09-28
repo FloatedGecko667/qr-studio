@@ -43,7 +43,8 @@ export function normalizeSymbol(s: SymbolSettings): SymbolSettings {
     mask,
     charset: oneOf(s.charset, ['auto', 'sjis', 'utf8'] as const, 'auto'),
     eci: type === 'micro' ? false : s.eci === true,
-    structuredAppend: type === 'model2' ? Math.round(clamp(s.structuredAppend, [1, 16])) : 1,
+    structuredAppend:
+      type !== 'model2' ? 1 : s.structuredAppend === 'auto' ? 'auto' : Math.round(clamp(Number(s.structuredAppend), [1, 16])),
   };
 }
 

@@ -46,7 +46,10 @@ export function preparePayload(payload: Payload, charset: SymbolSettings['charse
   }
 }
 
-export function encodeOptions(symbol: SymbolSettings, prepared: Prepared): EncodeOptions {
+export const MAX_APPEND = 16;
+
+/** Encode options for fixed settings; `appendCount` resolves an 'auto' structured-append setting. */
+export function encodeOptions(symbol: SymbolSettings, prepared: Prepared, appendCount = 1): EncodeOptions {
   return {
     type: symbol.type,
     ecLevel: symbol.ecLevel,
@@ -55,11 +58,11 @@ export function encodeOptions(symbol: SymbolSettings, prepared: Prepared): Encod
     // Binary payloads carry no text encoding, so an ECI would be misleading.
     eci: symbol.eci && prepared.units.length > 0 && !prepared.fnc1 ? ECI_FOR_CHARSET[prepared.charset] : undefined,
     fnc1: prepared.fnc1,
-    structuredAppend: symbol.structuredAppend,
+    structuredAppend: symbol.structuredAppend === 'auto' ? appendCount : symbol.structuredAppend,
   };
 }
 
-function fitsWith(units: readonly Unit[], opts: EncodeOptions): boolean {
+export function fitsWith(units: readonly Unit[], opts: EncodeOptions): boolean {
   const count = opts.structuredAppend ?? 1;
   const parts = count > 1 ? splitUnits(units, count) : [units];
   const candidates =
@@ -103,11 +106,24 @@ export function suggestFixes(units: readonly Unit[], opts: EncodeOptions): Sugge
   return out;
 }
 
+/**
+ * Resolves 'auto' structured append to the fewest symbols (1 = single symbol) that hold the
+ * data with the chosen version / EC level; falls back to the maximum so errors report it.
+ */
+export function resolveOptions(symbol: SymbolSettings, prepared: Prepared): EncodeOptions {
+  if (symbol.structuredAppend !== 'auto' || symbol.type !== 'model2') return encodeOptions(symbol, prepared);
+  for (let n = 1; n <= MAX_APPEND; n++) {
+    const opts = encodeOptions(symbol, prepared, n);
+    if (fitsWith(prepared.units, opts)) return opts;
+  }
+  return encodeOptions(symbol, prepared, MAX_APPEND);
+}
+
 export function runPipeline(payload: Payload, symbol: SymbolSettings): PipelineResult {
   const prepared = preparePayload(payload, symbol.charset);
   if (prepared === null) return { status: 'invalid', errors: payload.errors };
   if (prepared === 'charset') return { status: 'charset' };
-  const opts = encodeOptions(symbol, prepared);
+  const opts = resolveOptions(symbol, prepared);
   try {
     const result = encode(prepared.units, opts);
     return { status: 'ok', result, units: prepared.units, charset: prepared.charset, opts };

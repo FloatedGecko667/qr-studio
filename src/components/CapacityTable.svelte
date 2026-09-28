@@ -11,18 +11,18 @@
 
   const sym = $derived(app.settings.symbol);
   const prepared = $derived(preparePayload(app.payload, sym.charset));
-  const opts = $derived(prepared && prepared !== 'charset' ? encodeOptions(sym, prepared) : null);
+  const opts = $derived(prepared && prepared !== 'charset' ? encodeOptions(sym, prepared, app.appendCount) : null);
   const featureOpts = $derived({
     eci: opts?.eci,
     fnc1: opts?.fnc1,
-    structuredAppend: sym.structuredAppend,
+    structuredAppend: app.appendCount,
   });
   const rows: CapacityRow[] = $derived(capacityRows(sym.type, featureOpts));
   const filtered = $derived(ecFilter === 'all' ? rows : rows.filter((r) => r.spec.ecLevel === ecFilter));
 
   const parts = $derived.by(() => {
     if (!prepared || prepared === 'charset') return null;
-    return sym.structuredAppend > 1 ? splitUnits(prepared.units, sym.structuredAppend) : [prepared.units];
+    return app.appendCount > 1 ? splitUnits(prepared.units, app.appendCount) : [prepared.units];
   });
 
   /** Bits used by the largest part, or null when there is no valid input. */
@@ -69,8 +69,8 @@
 <section class="card stack" aria-labelledby="capacity-heading">
   <h2 id="capacity-heading">{t('section.capacity')}</h2>
   <p class="muted">{t('capacity.hint')}</p>
-  {#if sym.structuredAppend > 1}
-    <p class="muted">{t('capacity.appendNote', { count: sym.structuredAppend })}</p>
+  {#if app.appendCount > 1}
+    <p class="muted">{t('capacity.appendNote', { count: app.appendCount })}</p>
   {/if}
 
   <div class="row">

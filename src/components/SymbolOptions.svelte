@@ -15,7 +15,7 @@
     if (s.type === 'micro') w.push('symbol.readerWarningMicro');
     if (s.type === 'rmqr') w.push('symbol.readerWarningRmqr');
     if (s.type === 'model2' && resolved && resolved.version >= 25) w.push('symbol.readerWarningLarge');
-    if (s.structuredAppend > 1) w.push('symbol.readerWarningAppend');
+    if (app.appendCount > 1) w.push('symbol.readerWarningAppend');
     return w;
   });
 </script>
@@ -82,7 +82,11 @@
     {#if s.type === 'model2'}
       <label class="field">
         <span>{t('symbol.structuredAppend')}</span>
-        <select value={String(s.structuredAppend)} onchange={(e) => app.updateSymbol({ structuredAppend: Number(e.currentTarget.value) })}>
+        <select
+          value={String(s.structuredAppend)}
+          onchange={(e) =>
+            app.updateSymbol({ structuredAppend: e.currentTarget.value === 'auto' ? 'auto' : Number(e.currentTarget.value) })}>
+          <option value="auto">{t('symbol.auto')}{s.structuredAppend === 'auto' ? ` (${app.appendCount > 1 ? app.appendCount : t('symbol.structuredAppendOff')})` : ''}</option>
           <option value="1">{t('symbol.structuredAppendOff')}</option>
           {#each Array.from({ length: 15 }, (_, i) => i + 2) as n (n)}
             <option value={String(n)}>{n}</option>

@@ -3,7 +3,8 @@ import { symbolSpec } from './encoder/symbols';
 import { normalizeOutput, normalizeStyle, normalizeSymbol, DEFAULT_QUIET_ZONE } from './normalize';
 import { FORMS, restoreFields, type FormValues } from './payload/forms';
 import type { PayloadKind } from './payload';
-import { runPipeline, type PipelineResult } from './pipeline';
+import { preparePayload, runPipeline, type PipelineResult } from './pipeline';
+import { computeUsage, type Usage } from './usage';
 import { loadJson, saveJson } from './storage/local';
 import { loadSettings, SETTINGS_KEY, type OutputSettings, type Settings, type StyleSettings, type SymbolSettings } from './settings';
 
@@ -24,6 +25,20 @@ class AppState {
 
   payload = $derived(FORMS[this.kind].build(this.fields[this.kind]));
   pipeline: PipelineResult = $derived(runPipeline(this.payload, this.settings.symbol));
+  usage: Usage | null = $derived.by(() => {
+    const prepared = preparePayload(this.payload, this.settings.symbol.charset);
+    if (!prepared || prepared === 'charset' || prepared.units.length === 0) return null;
+    const chars = this.payload.text === undefined ? null : Array.from(this.payload.text).length;
+    return computeUsage(prepared, this.settings.symbol, this.pipeline, chars);
+  });
+  /** Structured-append count actually in effect (resolves 'auto'). */
+  appendCount: number = $derived(
+    this.pipeline.status === 'ok'
+      ? this.pipeline.result.symbols.length
+      : this.settings.symbol.structuredAppend === 'auto'
+        ? 1
+        : this.settings.symbol.structuredAppend,
+  );
 
   constructor() {
     this.settings.symbol = normalizeSymbol(this.settings.symbol);
