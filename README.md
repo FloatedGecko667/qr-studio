@@ -30,6 +30,7 @@ npm run dev
 | コマンド | 内容 |
 |---|---|
 | `npm test` | ユニット・往復テスト（vitest） |
+| `npm run test:e2e` | E2E・アクセシビリティ（Playwright + axe、事前に `npm run build`） |
 | `npm run check` | 型チェック |
 | `npm run lint` | oxlint |
 | `npm run build` | 本番ビルド（`dist/`） |
@@ -40,6 +41,7 @@ npm run dev
 - `src/lib/encoder/roundtrip.test.ts`：全シンボル・全型番・全誤り訂正レベルを zxing-cpp で読み取り、元データに戻ることを確認します。
 - `src/lib/encoder/capacity.test.ts`：容量テーブルの最大文字数ちょうどが入り、1文字多いと入らないことを全行で確認します。
 - `src/lib/barcode/barcode.test.ts`：バーコードのバー・スペース幅が bwip-js と一致し、zxing-cpp で読み取れることを確認します。
+- `e2e/`：PC とスマホの2つの画面サイズで、生成・読取検証・保存・読取・一括生成・履歴・設定の保存・スクロール時のプレビュー表示を Playwright で確認し、全モード・全タブ（ライト／ダーク）を axe-core で WCAG 2.2 AA に照らして検査します。
 - `src/lib/barcode/datamatrix.test.ts`：Data Matrix の全サイズのモジュール配置が bwip-js と一致し、zxing-cpp で読み取れることを確認します。
 
 ## ライセンス
