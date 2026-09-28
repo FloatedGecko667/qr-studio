@@ -4,7 +4,7 @@
   import { BARCODE_LIMITS, barcodeSize, moduleSize, type BarcodeOutput } from '../lib/barcode/settings';
   import type { BarcodeState } from '../lib/barcode/state.svelte';
   import { exportSized, extensionFor } from '../lib/compose';
-  import { copyImage, copyText, downloadBlob, sanitizeFilename } from '../lib/export/download';
+  import { canShareFiles, copyImage, copyText, downloadBlob, sanitizeFilename, shareFiles } from '../lib/export/download';
   import { addHistory, newId } from '../lib/storage/records';
   import { formatNumber, t } from '../lib/i18n/index.svelte';
   import { fontDataUrl } from '../lib/render/font';
@@ -25,7 +25,7 @@
   const RETAIL_X = [0.264, 0.66];
 
   let notice = $state('');
-  let noticeKind: 'ok' | 'error' = $state('ok');
+  let noticeKind: 'ok' | 'warn' | 'error' = $state('ok');
   let verify: { state: 'idle' | 'running' | 'ok' | 'mismatch' | 'fail' | 'error'; format?: string; key?: string } = $state({ state: 'idle' });
   const verifyKey = $derived(svg?.svg ?? '');
 
@@ -61,6 +61,35 @@
       const s = barcodeSize(r, out, kind);
       const blob = await exportSized(r.svg, s, out.format, out.unit === 'mm' ? out.dpi : undefined, out.quality, style.bg);
       downloadBlob(blob, `${baseName()}.${extensionFor(out)}`);
+    });
+
+  const shareable = canShareFiles();
+  const shareKey = $derived(`${verifyKey}|${JSON.stringify(out)}`);
+  // Kept so a second tap can share at once when the first one outlived the tap's permission.
+  let prepared: { key: string; files: File[] } | null = null;
+
+  async function outputFile(format: BarcodeOutput['format']): Promise<File[]> {
+    const r = await exportSvg();
+    if (!r) return [];
+    const o = { ...out, format };
+    const blob = await exportSized(r.svg, barcodeSize(r, o, kind), format, o.unit === 'mm' ? o.dpi : undefined, o.quality, style.bg);
+    return [new File([blob], `${baseName()}.${extensionFor(o)}`, { type: blob.type })];
+  }
+
+  const share = () =>
+    run(async () => {
+      const key = shareKey;
+      let files = prepared?.key === key ? prepared.files : await outputFile(out.format);
+      if (!files.length) return;
+      let outcome = await shareFiles(files);
+      // Messaging apps often take only images: fall back to PNG for SVG / PDF.
+      if (outcome === 'unsupported' && out.format !== 'png') {
+        files = await outputFile('png');
+        outcome = await shareFiles(files);
+      }
+      prepared = { key, files };
+      if (outcome === 'retry') flash(t('output.shareRetry'), 'warn');
+      else if (outcome === 'unsupported') flash(t('output.shareFailed'), 'error');
     });
 
   const copy = () =>
@@ -237,6 +266,7 @@
     <div class="row">
       <button type="button" class="btn primary" disabled={!svg || tooLarge} onclick={download}>{t('output.download')}</button>
       <button type="button" class="btn" disabled={!svg || tooLarge} onclick={copy}>{t('output.copy')}</button>
+      {#if shareable}<button type="button" class="btn" disabled={!svg || tooLarge} onclick={share}>{t('output.share')}</button>{/if}
       <button type="button" class="btn" disabled={!svg} onclick={copyData}>{t('output.copyText')}</button>
       <button type="button" class="btn" disabled={!svg} onclick={saveHistory}>{t('output.saveHistory')}</button>
     </div>

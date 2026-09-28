@@ -51,3 +51,31 @@ export async function zipFiles(files: { name: string; blob: Blob }[]): Promise<B
   for (const [i, f] of files.entries()) entries[names[i]] = new Uint8Array(await f.blob.arrayBuffer());
   return new Blob([zipSync(entries, { level: 6 }) as Uint8Array<ArrayBuffer>], { type: 'application/zip' });
 }
+
+/** Whether this browser can hand files to other apps (Web Share API level 2). */
+export function canShareFiles(): boolean {
+  try {
+    return typeof navigator.canShare === 'function' && navigator.canShare({ files: [new File([''], 'x.png', { type: 'image/png' })] });
+  } catch {
+    return false;
+  }
+}
+
+export type ShareOutcome = 'shared' | 'cancelled' | 'retry' | 'unsupported';
+
+/**
+ * Opens the system share sheet with `files`. Browsers only allow this shortly after a tap, so a
+ * slow render can expire it: that case returns 'retry' and the caller keeps the files for a
+ * second tap. A target that rejects the file type returns 'unsupported'.
+ */
+export async function shareFiles(files: File[]): Promise<ShareOutcome> {
+  if (!navigator.canShare?.({ files })) return 'unsupported';
+  try {
+    await navigator.share({ files });
+    return 'shared';
+  } catch (e) {
+    if (e instanceof DOMException && e.name === 'AbortError') return 'cancelled';
+    if (e instanceof DOMException && e.name === 'NotAllowedError') return 'retry';
+    throw e;
+  }
+}

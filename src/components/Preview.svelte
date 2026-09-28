@@ -1,7 +1,7 @@
 <script lang="ts">
   import { app } from '../lib/app.svelte';
   import { exportBlob, extensionFor, renderStyle, symbolSvgs } from '../lib/compose';
-  import { copyImage, copyText, downloadBlob, zipFiles } from '../lib/export/download';
+  import { canShareFiles, copyImage, copyText, downloadBlob, shareFiles, zipFiles } from '../lib/export/download';
   import { formatNumber, t } from '../lib/i18n/index.svelte';
   import { fontDataUrl } from '../lib/render/font';
   import { composeSheet, outputSize } from '../lib/render/output';
@@ -87,6 +87,39 @@
       if (!confirmDangerous()) return;
       const sheet = composeSheet(await exportSvgs(out.format !== 'svg'));
       downloadBlob(await exportBlob(sheet, out, style.bg), `${baseName()}-sheet.${extensionFor(out)}`);
+    });
+
+  const shareable = canShareFiles();
+  const shareKey = $derived(`${verifyKey}|${JSON.stringify(out)}|${style.embedFont}`);
+  // Kept so a second tap can share at once when the first one outlived the tap's permission.
+  let prepared: { key: string; files: File[] } | null = null;
+
+  async function outputFiles(format: OutputSettings['format']): Promise<File[]> {
+    const o = { ...out, format };
+    const list = await exportSvgs(format !== 'svg');
+    const files: File[] = [];
+    for (const [i, r] of list.entries()) {
+      const name = list.length > 1 ? `${baseName()}-${i + 1}of${list.length}` : baseName();
+      const blob = await exportBlob(r, o, style.bg);
+      files.push(new File([blob], `${name}.${extensionFor(o)}`, { type: blob.type }));
+    }
+    return files;
+  }
+
+  const share = () =>
+    run(async () => {
+      if (!confirmDangerous()) return;
+      const key = shareKey;
+      let files = prepared?.key === key ? prepared.files : await outputFiles(out.format);
+      let outcome = await shareFiles(files);
+      // Messaging apps often take only images: fall back to PNG for SVG / PDF.
+      if (outcome === 'unsupported' && out.format !== 'png') {
+        files = await outputFiles('png');
+        outcome = await shareFiles(files);
+      }
+      prepared = { key, files };
+      if (outcome === 'retry') flash(t('output.shareRetry'), 'warn');
+      else if (outcome === 'unsupported') flash(t('output.shareFailed'), 'error');
     });
 
   const copy = () =>
@@ -296,6 +329,7 @@
         <button type="button" class="btn" onclick={downloadSheet}>{t('output.downloadSheet')}</button>
       {/if}
       <button type="button" class="btn" disabled={!svgs.length} onclick={copy}>{t('output.copy')}</button>
+      {#if shareable}<button type="button" class="btn" disabled={!svgs.length || tooLarge} onclick={share}>{t('output.share')}</button>{/if}
       <button type="button" class="btn" disabled={!svgs.length || !app.payload.text} onclick={copyData}>{t('output.copyText')}</button>
       <button type="button" class="btn" disabled={!svgs.length} onclick={saveHistory}>{t('output.saveHistory')}</button>
     </div>
