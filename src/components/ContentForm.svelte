@@ -4,6 +4,7 @@
   import { PAYLOAD_KINDS } from '../lib/payload';
   import { FORMS, type FieldDef } from '../lib/payload/forms';
   import UsageMeter from './UsageMeter.svelte';
+  import ImageInput from './ImageInput.svelte';
 
   const form = $derived(FORMS[app.kind]);
   const values = $derived(app.fields[app.kind]);
@@ -50,6 +51,8 @@
         onclick={() => (app.kind = kind)}>{t(`kind.${kind}`)}</button>
     {/each}
   </div>
+
+  {#if app.kind === 'image'}<ImageInput />{/if}
 
   <div class="grid2">
     {#each form.fields as f (f.key)}

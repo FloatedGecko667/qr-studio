@@ -17,6 +17,7 @@ import {
   type PayloadKind,
   type WifiAuth,
 } from '.';
+import { encodeImage } from '../imageData';
 
 export type FieldType = 'text' | 'textarea' | 'url' | 'tel' | 'email' | 'password' | 'number' | 'datetime' | 'select' | 'checkbox' | 'file';
 
@@ -169,6 +170,16 @@ export const FORMS: Record<PayloadKind, FormDef> = {
     fields: [{ key: 'value', type: 'textarea', label: 'gs1', rows: 2, placeholder: '(01)04912345123459(10)ABC123' }],
     defaults: { value: '' },
     build: (f) => buildGs1({ value: s(f, 'value') }),
+  },
+  image: {
+    // Rendered by ImageInput.svelte: resizing is asynchronous, so the fitted file is stored here.
+    fields: [],
+    defaults: { image: null, mime: '', encoding: 'binary', format: 'webp', maxEdge: '256', maxQuality: '0.8' },
+    build: (f) => {
+      if (!(f.image instanceof Uint8Array)) return { errors: ['payload.image.required'], warnings: [] };
+      const encoding = (['binary', 'base64', 'base45'] as const).find((e) => e === f.encoding) ?? 'binary';
+      return { ...encodeImage(f.image, s(f, 'mime') || 'image/webp', encoding), errors: [], warnings: ['payload.image.readerNote'] };
+    },
   },
   binary: {
     fields: [

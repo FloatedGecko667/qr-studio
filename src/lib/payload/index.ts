@@ -14,6 +14,7 @@ export type PayloadKind =
   | 'geo'
   | 'event'
   | 'gs1'
+  | 'image'
   | 'binary';
 
 export const PAYLOAD_KINDS: readonly PayloadKind[] = [
@@ -29,6 +30,7 @@ export const PAYLOAD_KINDS: readonly PayloadKind[] = [
   'geo',
   'event',
   'gs1',
+  'image',
   'binary',
 ];
 

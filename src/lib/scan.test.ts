@@ -16,7 +16,7 @@ describe('SequenceCollector', () => {
     expect(c.add(scanned[2])).toBeNull();
     expect(c.add(scanned[0])).toBeNull();
     expect(c.pending()).toEqual([[2, 3]]);
-    expect(c.add(scanned[1])).toEqual({ text, format: 'QRCode', compressed: false, parts: 3 });
+    expect(c.add(scanned[1])).toMatchObject({ text, format: 'QRCode', compressed: false, parts: 3 });
   });
 
   it('inflates compressed single symbols and structured-append sequences', async () => {

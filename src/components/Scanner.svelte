@@ -3,6 +3,8 @@
   import { copyText } from '../lib/export/download';
   import { t } from '../lib/i18n/index.svelte';
   import { SequenceCollector, type ScanOutcome } from '../lib/scan';
+  import { detectImage, extensionForMime } from '../lib/imageData';
+  import { downloadBlob } from '../lib/export/download';
 
   const MAX_EDGE = 1280;
   const INTERVAL_MS = 250;
@@ -19,6 +21,19 @@
   const canvas = document.createElement('canvas');
 
   const isWebUrl = $derived(!!result && /^https?:\/\/\S+$/i.test(result.text.trim()));
+  const image = $derived(result ? detectImage(result.bytes, result.text) : null);
+  const imageUrl = $derived(image ? URL.createObjectURL(new Blob([image.bytes as Uint8Array<ArrayBuffer>], { type: image.mime })) : null);
+  $effect(() => {
+    const url = imageUrl;
+    return () => {
+      if (url) URL.revokeObjectURL(url);
+    };
+  });
+
+  function saveImage() {
+    if (!image) return;
+    downloadBlob(new Blob([image.bytes as Uint8Array<ArrayBuffer>], { type: image.mime }), `scanned.${extensionForMime(image.mime)}`);
+  }
 
   function frameData(source: CanvasImageSource, w: number, h: number): ImageData {
     const scale = Math.min(1, MAX_EDGE / Math.max(w, h));
@@ -161,8 +176,14 @@
         {#if result.parts > 1}<span class="badge">{t('scan.parts', { n: result.parts })}</span>{/if}
         {#if result.compressed}<span class="badge">{t('scan.inflated')}</span>{/if}
       </div>
-      <pre>{result.text}</pre>
+      {#if image && imageUrl}
+        <img class="scanned" src={imageUrl} alt={t('scan.imageAlt')} />
+        <p class="muted">{t('scan.image', { mime: image.mime, encoding: image.encoding, n: image.bytes.length })}</p>
+      {:else}
+        <pre>{result.text}</pre>
+      {/if}
       <div class="row">
+        {#if image}<button type="button" class="btn small primary" onclick={saveImage}>{t('scan.saveImage')}</button>{/if}
         <button type="button" class="btn small" onclick={copy}>{copied ? t('output.copied') : t('output.copyText')}</button>
         {#if isWebUrl}
           <a class="btn small" href={result.text.trim()} target="_blank" rel="noopener noreferrer">{t('scan.open')}</a>
@@ -190,6 +211,14 @@
     border: 1px solid var(--border);
     border-radius: 8px;
     padding: 12px;
+  }
+  .scanned {
+    max-width: 100%;
+    max-height: 50vh;
+    align-self: start;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    image-rendering: pixelated;
   }
   pre {
     margin: 0;

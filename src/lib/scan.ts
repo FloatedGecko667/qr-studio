@@ -16,6 +16,8 @@ export interface ScanOutcome {
   compressed: boolean;
   /** Number of structured-append symbols merged (1 for a single symbol). */
   parts: number;
+  /** Raw payload bytes (merged for structured append). */
+  bytes: Uint8Array;
 }
 
 /** Decodes merged bytes: QR Studio deflate first, then UTF-8, then Shift_JIS. */
@@ -37,7 +39,7 @@ export class SequenceCollector {
   add(s: ScannedSymbol): ScanOutcome | null {
     if (s.sequenceSize < 2) {
       const inflated = decompressText(s.bytes);
-      return { text: inflated ?? s.text, format: s.format, compressed: inflated !== null, parts: 1 };
+      return { text: inflated ?? s.text, format: s.format, compressed: inflated !== null, parts: 1, bytes: s.bytes };
     }
     const key = `${s.sequenceId}/${s.sequenceSize}`;
     const group = this.groups.get(key) ?? new Map<number, ScannedSymbol>();
@@ -53,7 +55,7 @@ export class SequenceCollector {
       offset += p.bytes.length;
     }
     this.groups.delete(key);
-    return { ...decodeBytes(merged), format: s.format, parts: s.sequenceSize };
+    return { ...decodeBytes(merged), format: s.format, parts: s.sequenceSize, bytes: merged };
   }
 
   /** Progress of incomplete sequences: [found, total]. */

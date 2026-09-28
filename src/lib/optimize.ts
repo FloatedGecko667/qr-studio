@@ -21,7 +21,7 @@ export const DEFAULT_OPTIMIZE: OptimizeSettings = {
 };
 
 /** Kinds whose text must not change (credentials, element strings, raw bytes). */
-const NO_HALFWIDTH: readonly PayloadKind[] = ['wifi', 'gs1', 'binary'];
+const NO_HALFWIDTH: readonly PayloadKind[] = ['wifi', 'gs1', 'binary', 'image'];
 const URL_KINDS: readonly PayloadKind[] = ['url', 'multiUrl', 'text'];
 
 /**
@@ -89,6 +89,7 @@ export function buildOptimized(kind: PayloadKind, fields: FormValues, opt: Optim
     text = t;
   }
   if (opt.compactContact && (kind === 'vcard' || kind === 'mecard')) applied.push('compactContact');
-  const compressed = opt.deflate && !p.fnc1 ? compressText(text) : undefined;
+  // Image text encodings are chosen explicitly; do not silently replace them with deflate.
+  const compressed = opt.deflate && !p.fnc1 && kind !== 'image' ? compressText(text) : undefined;
   return { ...p, text, compressed, applied };
 }
