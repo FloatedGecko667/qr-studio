@@ -26,6 +26,7 @@ export const ja = {
   'section.output': '出力',
   'section.preview': 'プレビュー',
   'section.capacity': '容量テーブル',
+  'dock.show': 'プレビューに戻る',
 
   'kind.url': 'URL',
   'kind.text': 'テキスト',

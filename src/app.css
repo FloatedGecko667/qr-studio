@@ -17,7 +17,15 @@
   --focus: #2657d9;
   --radius: 10px;
   --shadow: 0 1px 2px rgb(0 0 0 / 6%), 0 4px 12px rgb(0 0 0 / 4%);
+  --page-w: 1280px;
   color-scheme: light;
+}
+
+/* Wide monitors: use the room for a third column (see .layout in App.svelte). */
+@media (min-width: 1440px) {
+  :root {
+    --page-w: 1600px;
+  }
 }
 
 @media (prefers-color-scheme: dark) {

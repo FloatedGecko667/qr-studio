@@ -344,6 +344,12 @@
     max-width: 320px;
     line-height: 0;
   }
+  /* Two-column layout: shrink the symbol on short screens so the whole card stays in view. */
+  @media (min-width: 861px) {
+    .symbol {
+      max-width: min(320px, max(160px, calc(100dvh - var(--ribbon-h, 0px) - 540px)));
+    }
+  }
   .symbol :global(svg) {
     width: 100%;
     height: auto;

@@ -28,6 +28,7 @@ export const en: Record<keyof typeof ja, string> = {
   'section.output': 'Output',
   'section.preview': 'Preview',
   'section.capacity': 'Capacity table',
+  'dock.show': 'Back to preview',
 
   'kind.url': 'URL',
   'kind.text': 'Text',

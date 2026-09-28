@@ -5,6 +5,7 @@
   import History from './components/History.svelte';
   import Licenses from './components/Licenses.svelte';
   import Preview from './components/Preview.svelte';
+  import PreviewDock from './components/PreviewDock.svelte';
   import Scanner from './components/Scanner.svelte';
   import StyleOptions from './components/StyleOptions.svelte';
   import SymbolOptions from './components/SymbolOptions.svelte';
@@ -13,6 +14,7 @@
   import { t } from './lib/i18n/index.svelte';
   import { MODES, type Locale, type Mode, type Theme } from './lib/settings';
   import { applyTheme } from './lib/theme';
+  import { stickySidebar } from './lib/ui/stickySidebar';
 
   type Tab = 'generate' | 'batch' | 'scan' | 'history';
   const TABS: Record<Mode, Tab[]> = {
@@ -25,6 +27,7 @@
   let ribbonHeight = $state(0);
   let settingsOpen = $state(false);
   let settingsEl: HTMLDetailsElement | undefined = $state();
+  let previewEl: HTMLElement | undefined = $state();
 
   // Close the settings menu on an outside click or Escape.
   function onWindowPointer(e: PointerEvent) {
@@ -155,10 +158,8 @@
               <ui.BarcodeForm {code} />
               <ui.BarcodeStyle {code} />
             </div>
-            <div class="col side">
-              <div class="preview-slot">
-                <ui.BarcodePreview {code} />
-              </div>
+            <div class="preview-slot" use:stickySidebar bind:this={previewEl}>
+              <ui.BarcodePreview {code} />
             </div>
           </div>
         {/if}
@@ -167,16 +168,16 @@
       <p class="msg error">{t('app.loadError')}</p>
     {/await}
   {:else if tab === 'generate'}
-    <div class="layout">
+    <div class="layout with-capacity">
       <div class="col inputs">
         <ContentForm />
         <SymbolOptions />
         <StyleOptions />
       </div>
-      <div class="col side">
-        <div class="preview-slot">
-          <Preview />
-        </div>
+      <div class="preview-slot" use:stickySidebar bind:this={previewEl}>
+        <Preview />
+      </div>
+      <div class="capacity-slot" use:stickySidebar>
         <CapacityTable />
       </div>
     </div>
@@ -202,6 +203,8 @@
   <button type="button" class="link" onclick={() => (licensesOpen = true)}>{t('app.licenses')}</button>
 </footer>
 
+{#if tab === 'generate'}<PreviewDock anchor={previewEl} />{/if}
+
 <Licenses bind:open={licensesOpen} />
 <UpdatePrompt />
 
@@ -220,7 +223,7 @@
     align-items: center;
     gap: 8px 16px;
     padding: 8px max(16px, env(safe-area-inset-left)) 4px;
-    max-width: 1280px;
+    max-width: var(--page-w);
     margin: 0 auto;
   }
   .brand {
@@ -313,7 +316,7 @@
     z-index: 1;
   }
   nav {
-    max-width: 1280px;
+    max-width: var(--page-w);
     margin: 0 auto;
     padding: 0 16px;
     overflow-x: auto;
@@ -338,32 +341,53 @@
     border-bottom-color: var(--accent);
   }
   main {
-    max-width: 1280px;
+    max-width: var(--page-w);
     margin: 0 auto;
     padding: 16px;
   }
+  /* Generate tab, shared by all three modes. One page scroll moves everything: the preview
+     (and on wide screens the capacity table) follows in its own column via stickySidebar,
+     never with a scrollbar of its own. Columns: tablet/desktop inputs | preview, with the
+     capacity table under the inputs; wide screens get a third column for it. */
   .layout {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-areas: 'inputs preview';
     gap: 16px;
     align-items: start;
+  }
+  .layout.with-capacity {
+    grid-template-rows: auto 1fr;
+    grid-template-areas:
+      'inputs preview'
+      'capacity preview';
   }
   .col {
     display: grid;
     gap: 16px;
     min-width: 0;
   }
-  /* Desktop: the whole right column stays in view and scrolls on its own, so the capacity
-     table can never slide underneath the preview. */
-  .side {
+  .inputs {
+    grid-area: inputs;
+  }
+  .preview-slot {
+    grid-area: preview;
     position: sticky;
-    top: calc(var(--ribbon-h, 0px) + 12px);
-    max-height: calc(100vh - var(--ribbon-h, 0px) - 24px);
-    max-height: calc(100dvh - var(--ribbon-h, 0px) - 24px);
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    scrollbar-gutter: stable;
-    align-content: start;
+    min-width: 0;
+  }
+  .capacity-slot {
+    grid-area: capacity;
+    min-width: 0;
+  }
+  @media (min-width: 1440px) {
+    .layout.with-capacity {
+      grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr) minmax(0, 0.9fr);
+      grid-template-rows: auto;
+      grid-template-areas: 'inputs preview capacity';
+    }
+    .capacity-slot {
+      position: sticky;
+    }
   }
   .loading {
     text-align: center;
@@ -373,7 +397,7 @@
     margin: 0 auto;
   }
   footer {
-    max-width: 1280px;
+    max-width: var(--page-w);
     margin: 0 auto;
     padding: 16px 16px 32px;
     color: var(--text-2);
@@ -446,23 +470,17 @@
     }
   }
 
-  /* Phones: preview first, then inputs, then the capacity table. The preview card is taller
-     than a phone screen, so it scrolls normally instead of sticking. */
+  /* Phones and portrait tablets: one column with the preview first. It scrolls with the page;
+     PreviewDock shows a compact copy under the ribbon once it has scrolled away. */
   @media (max-width: 860px) {
-    .layout {
+    .layout,
+    .layout.with-capacity {
       grid-template-columns: minmax(0, 1fr);
-    }
-    .side {
-      display: contents;
+      grid-template-rows: auto;
+      grid-template-areas: 'preview' 'inputs' 'capacity';
     }
     .preview-slot {
-      order: -1;
-    }
-    .inputs {
-      order: 0;
-    }
-    .side > :global(section) {
-      order: 1;
+      position: static;
     }
   }
 </style>

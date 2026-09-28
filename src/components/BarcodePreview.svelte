@@ -291,6 +291,15 @@
     height: auto;
     max-height: 360px;
   }
+  /* Two-column layout: shrink the symbol on short screens so the whole card stays in view. */
+  @media (min-width: 861px) {
+    .symbol.matrix {
+      max-width: min(280px, max(140px, calc(100dvh - var(--ribbon-h, 0px) - 560px)));
+    }
+    .symbol :global(svg) {
+      max-height: min(360px, max(120px, calc(100dvh - var(--ribbon-h, 0px) - 560px)));
+    }
+  }
   .placeholder {
     font-size: 48px;
     font-weight: 700;
