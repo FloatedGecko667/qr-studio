@@ -17,6 +17,7 @@
     { name: 'fflate', license: 'MIT', url: 'https://github.com/101arrowz/fflate' },
     { name: 'idb-keyval', license: 'Apache-2.0', url: 'https://github.com/jakearchibald/idb-keyval' },
     { name: 'Workbox', license: 'MIT', url: 'https://github.com/GoogleChrome/workbox' },
+    { name: 'Leaflet', license: 'BSD-2-Clause', url: 'https://github.com/Leaflet/Leaflet' },
     { name: 'JetBrains Mono', license: 'SIL Open Font License 1.1', url: 'https://github.com/JetBrains/JetBrainsMono' },
   ];
 </script>

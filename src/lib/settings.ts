@@ -2,6 +2,7 @@ import type { EcLevel, SymbolType } from './encoder';
 import type { Enclosure, LabelPosition } from './render/svg';
 import type { RasterFormat } from './render/raster';
 import { DEFAULT_OPTIMIZE, type OptimizeSettings } from './optimize';
+import type { GeoProvider } from './geo/search';
 
 export interface SymbolSettings {
   type: SymbolType;
@@ -50,6 +51,8 @@ export interface Settings {
   style: StyleSettings;
   output: OutputSettings;
   optimize: OptimizeSettings;
+  /** Map / place search service, chosen explicitly by the user. */
+  geoProvider: GeoProvider;
   theme: Theme;
   locale: Locale;
 }
@@ -132,6 +135,7 @@ export function loadSettings(stored: unknown): Settings {
     style: mergeKnown(DEFAULT_STYLE, s.style),
     output: mergeKnown(DEFAULT_OUTPUT, s.output),
     optimize: mergeKnown(DEFAULT_OPTIMIZE, s.optimize),
+    geoProvider: s.geoProvider === 'osm' ? 'osm' : 'gsi',
     theme,
     locale,
   };

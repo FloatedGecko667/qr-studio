@@ -5,6 +5,7 @@
   import { FORMS, type FieldDef } from '../lib/payload/forms';
   import UsageMeter from './UsageMeter.svelte';
   import ImageInput from './ImageInput.svelte';
+  import GeoInput from './GeoInput.svelte';
 
   const form = $derived(FORMS[app.kind]);
   const values = $derived(app.fields[app.kind]);
@@ -53,6 +54,7 @@
   </div>
 
   {#if app.kind === 'image'}<ImageInput />{/if}
+  {#if app.kind === 'geo'}<GeoInput />{/if}
 
   <div class="grid2">
     {#each form.fields as f (f.key)}
