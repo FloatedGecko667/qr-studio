@@ -80,7 +80,7 @@
         <StyleOptions />
       </div>
       <div class="col side">
-        <div class="sticky">
+        <div class="preview-slot">
           <Preview />
         </div>
         <CapacityTable />
@@ -177,10 +177,17 @@
     gap: 16px;
     min-width: 0;
   }
-  .sticky {
+  /* Desktop: the whole right column stays in view and scrolls on its own, so the capacity
+     table can never slide underneath the preview. */
+  .side {
     position: sticky;
     top: 12px;
-    z-index: 2;
+    max-height: calc(100vh - 24px);
+    max-height: calc(100dvh - 24px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+    align-content: start;
   }
   .narrow {
     max-width: 760px;
@@ -218,9 +225,8 @@
     .side {
       display: contents;
     }
-    .sticky {
+    .preview-slot {
       order: -1;
-      position: static;
     }
     .inputs {
       order: 0;
