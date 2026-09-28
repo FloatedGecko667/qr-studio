@@ -27,7 +27,7 @@ describe('imagesToPdf', () => {
     const startxref = Number(/startxref\n(\d+)\n/.exec(s)![1]);
     expect(s.slice(startxref, startxref + 4)).toBe('xref');
     // Every xref entry points at the start of its object.
-    const entries = s.slice(startxref).split('\n').slice(3).filter((l) => / 00000 n $/.test(l));
+    const entries = s.slice(startxref).split('\n').slice(3).filter((l) => l.endsWith(' 00000 n '));
     expect(entries).toHaveLength(5);
     entries.forEach((line, i) => {
       const at = Number(line.slice(0, 10));
