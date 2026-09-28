@@ -70,6 +70,8 @@
 
 html {
   -webkit-text-size-adjust: 100%;
+  /* Keep focused fields and anchors clear of the sticky ribbon. */
+  scroll-padding-top: calc(var(--ribbon-h, 0px) + 8px);
 }
 
 body {

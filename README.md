@@ -1,6 +1,6 @@
 # QR Studio
 
-QRコード（モデル2・マイクロQR・rMQR・連結）を**端末内だけで**生成するPWAです。Svelte 5 + Vite で構築し、エンコーダは TypeScript で自作しています。
+QRコード（モデル2・マイクロQR・rMQR・連結）とバーコード（JAN/EAN・UPC・Code 128・GS1-128・Code 39/93・ITF・NW-7 など）を**端末内だけで**生成するPWAです。Svelte 5 + Vite で構築し、エンコーダは TypeScript で自作しています。
 
 > QRコードは株式会社デンソーウェーブの登録商標です。
 
@@ -10,7 +10,8 @@ QRコード（モデル2・マイクロQR・rMQR・連結）を**端末内だけ
 - 符号化：数字・英数字・バイト・漢字（Shift_JIS）を最短になるよう自動で混在、ECI、GS1（FNC1）
 - 入力：URL、テキスト、複数URL、電話、SMS、メール、Wi-Fi、vCard、MeCard、位置情報、カレンダー、GS1、画像（容量に合わせて自動縮小）、バイナリ
 - データ削減：URL大文字化、全角→半角、連絡先の最小化、deflate 圧縮
-- 読取：カメラ・画像から QR・マイクロQR・rMQR を読み取り、連結の結合・解凍・画像表示
+- バーコード：EAN-13/JAN-13、EAN-8、UPC-A/E（アドオン対応）、Code 128（A/B/C 自動最適化・固定）、GS1-128、Code 39（Full ASCII）、Code 93、ITF、ITF-14（ベアラーバー）、NW-7、MSI、Pharmacode。X寸法（mm）+ dpi 指定、連番の一括生成
+- 読取：カメラ・画像から QR・マイクロQR・rMQR・主なバーコードを読み取り、連結の結合・解凍・画像表示
 - 容量テーブル：現在の設定の前後を表示し、入力が収まる行・最小の型番・使用率を表示
 - デザイン：色・透過・余白、中央のロゴ／囲み文字、ラベル枠、読取検証（zxing-cpp）
 - 出力：PNG / SVG / JPEG / WebP、mm + dpi 指定、クリップボード、ZIP、履歴、プリセット、一括生成（最大1,000件）
@@ -37,6 +38,7 @@ npm run dev
 - `src/lib/encoder/reference.test.ts`：segno / rmqrcode-python が生成したマトリクスとセル単位で一致することを確認します（`scripts/gen-reference.py` で再生成）。
 - `src/lib/encoder/roundtrip.test.ts`：全シンボル・全型番・全誤り訂正レベルを zxing-cpp で読み取り、元データに戻ることを確認します。
 - `src/lib/encoder/capacity.test.ts`：容量テーブルの最大文字数ちょうどが入り、1文字多いと入らないことを全行で確認します。
+- `src/lib/barcode/barcode.test.ts`：バーコードのバー・スペース幅が bwip-js と一致し、zxing-cpp で読み取れることを確認します。
 
 ## ライセンス
 

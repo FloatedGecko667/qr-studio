@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { decodeCsv, itemsFromCsv, itemsFromLines, parseCsv } from './batch';
+import { decodeCsv, itemsFromCsv, itemsFromLines, parseCsv, serialLines } from './batch';
 import { sanitizeFilename, uniqueNames } from './export/download';
 
 describe('batch input', () => {
@@ -42,5 +42,13 @@ describe('batch input', () => {
     expect(sanitizeFilename('a/b:c*?.png')).toBe('a_b_c__.png');
     expect(sanitizeFilename('...')).toBe('qr');
     expect(uniqueNames(['a.png', 'A.png', 'a.png', 'a-2.png'])).toEqual(['a.png', 'A-2.png', 'a-3.png', 'a-2-2.png']);
+  });
+});
+
+describe('serialLines', () => {
+  it('pads, steps and caps the count', () => {
+    expect(serialLines({ prefix: 'A-', suffix: 'Z', start: 8, step: 2, count: 3, digits: 3 })).toEqual(['A-008Z', 'A-010Z', 'A-012Z']);
+    expect(serialLines({ prefix: '', suffix: '', start: 1, step: 1, count: 5000, digits: 0 })).toHaveLength(1000);
+    expect(serialLines({ prefix: '', suffix: '', start: NaN, step: NaN, count: 2, digits: NaN })).toEqual(['0', '1']);
   });
 });

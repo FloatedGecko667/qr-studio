@@ -17,6 +17,7 @@
     "@tsconfig/svelte": "^5.0.8",
     "@types/leaflet": "^1.9.22",
     "@types/node": "^24.13.3",
+    "bwip-js": "^4.11.4",
     "oxlint": "^1.85.0",
     "prettier": "^3.9.9",
     "prettier-plugin-svelte": "^4.1.1",

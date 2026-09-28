@@ -44,6 +44,7 @@ export interface OutputSettings {
 }
 
 export type Theme = 'system' | 'light' | 'dark';
+export type Mode = 'qr' | 'barcode';
 export type Locale = 'ja' | 'en';
 
 export interface Settings {
@@ -53,6 +54,8 @@ export interface Settings {
   optimize: OptimizeSettings;
   /** Map / place search service, chosen explicitly by the user. */
   geoProvider: GeoProvider;
+  /** QR code or barcode generator, switched by the top tabs. */
+  mode: Mode;
   theme: Theme;
   locale: Locale;
 }
@@ -136,6 +139,7 @@ export function loadSettings(stored: unknown): Settings {
     output: mergeKnown(DEFAULT_OUTPUT, s.output),
     optimize: mergeKnown(DEFAULT_OPTIMIZE, s.optimize),
     geoProvider: s.geoProvider === 'osm' ? 'osm' : 'gsi',
+    mode: s.mode === 'barcode' ? 'barcode' : 'qr',
     theme,
     locale,
   };

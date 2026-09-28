@@ -30,3 +30,29 @@ export async function decodeSymbol(sym: EncodedSymbol, scale = 4, quiet = 4): Pr
     maxNumberOfSymbols: 1,
   });
 }
+
+/** Rasterizes a linear symbol (bars only, `height` px tall) and decodes it with zxing-cpp. */
+export async function decodeLinear(
+  sym: { width: number; bars: { x: number; w: number }[] },
+  scale = 3,
+  quiet = 12,
+  height = 60,
+): Promise<ReadResult[]> {
+  const w = Math.ceil((sym.width + quiet * 2) * scale);
+  const data = new Uint8ClampedArray(w * height * 4).fill(255);
+  for (const b of sym.bars) {
+    const x0 = Math.round((b.x + quiet) * scale);
+    const x1 = Math.round((b.x + b.w + quiet) * scale);
+    for (let y = 0; y < height; y++) {
+      for (let x = x0; x < x1; x++) {
+        const i = (y * w + x) * 4;
+        data[i] = data[i + 1] = data[i + 2] = 0;
+      }
+    }
+  }
+  return readBarcodesFromImageData({ data, width: w, height, colorSpace: 'srgb' } as ImageData, {
+    formats: ['AllLinear'],
+    tryHarder: true,
+    maxNumberOfSymbols: 1,
+  });
+}

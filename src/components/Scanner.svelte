@@ -46,8 +46,11 @@
 
   /** Reads all symbols in the image; returns true once a complete payload is found. */
   async function process(image: ImageData, tryHarder: boolean): Promise<boolean> {
-    const { readSymbols } = await import('../lib/verify');
-    const symbols = await readSymbols(image, 16, tryHarder);
+    const { readSymbols, SCAN_FORMATS } = await import('../lib/verify');
+    const found = await readSymbols(image, 16, tryHarder, SCAN_FORMATS);
+    // QR symbols first, so a barcode on the same package does not cut a structured-append read short.
+    const isQr = (f: string) => /QR/i.test(f);
+    const symbols = [...found].sort((a, b) => Number(isQr(b.format)) - Number(isQr(a.format)));
     for (const s of symbols) {
       const outcome = collector.add(s);
       if (outcome) {

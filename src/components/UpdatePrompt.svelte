@@ -31,7 +31,7 @@
     gap: 8px;
     align-items: center;
     flex-wrap: wrap;
-    z-index: 10;
+    z-index: 30;
     max-width: calc(100vw - 32px);
   }
 </style>
