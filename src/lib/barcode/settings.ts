@@ -1,6 +1,7 @@
 import type { OutputFormat } from '../render/raster';
 import type { SvgResult } from '../render/svg';
 import { mergeKnown } from '../settings';
+import { AZTEC_LAYOUTS, aztecLayoutId } from './aztec';
 import { DM_SIZES, dmSizeLabel } from './datamatrix';
 import { BARCODE_LABELS } from './index';
 import type { BarcodeStyle } from './render';
@@ -130,6 +131,7 @@ export function normalizeBarcodeOptions(o: BarcodeOptions): BarcodeOptions {
     pdfLevel: o.pdfLevel === 'auto' ? 'auto' : Math.round(clamp(Number(o.pdfLevel), L.pdfLevel)),
     pdfColumns: o.pdfColumns === 'auto' ? 'auto' : Math.round(clamp(Number(o.pdfColumns), L.pdfColumns)),
     aztecEcc: Math.round(clamp(Number(o.aztecEcc), L.aztecEcc)),
+    aztecSize: AZTEC_LAYOUTS.some((l) => aztecLayoutId(l) === o.aztecSize) ? o.aztecSize : 'auto',
   };
 }
 

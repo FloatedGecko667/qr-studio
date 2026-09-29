@@ -156,13 +156,16 @@
         {#if tab === 'batch'}
           <div class="narrow"><ui.BarcodeBatch {code} /></div>
         {:else}
-          <div class="layout">
+          <div class="layout with-capacity">
             <div class="col inputs">
               <ui.BarcodeForm {code} />
               <ui.BarcodeStyle {code} />
             </div>
             <div class="preview-slot" use:stickySidebar bind:this={previewEl}>
               <ui.BarcodePreview {code} />
+            </div>
+            <div class="capacity-slot" use:stickySidebar>
+              {#if mode === 'datamatrix'}<ui.MatrixCapacity {code} />{:else}<ui.PrintWidth {code} />{/if}
             </div>
           </div>
         {/if}

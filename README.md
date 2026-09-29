@@ -10,8 +10,8 @@ QRコード（モデル2・マイクロQR・rMQR・連結）とバーコード�
 - 符号化：数字・英数字・バイト・漢字（Shift_JIS）を最短になるよう自動で混在、ECI、GS1（FNC1）
 - 入力：URL、テキスト、複数URL、電話、SMS、メール、Wi-Fi、vCard、MeCard、位置情報、カレンダー、GS1、画像（容量に合わせて自動縮小）、バイナリ。よく使う入力はテンプレートとして保存（明示的に保存したときだけ、パスワードは任意）
 - データ削減：URL大文字化、全角→半角、連絡先の最小化、deflate 圧縮
-- バーコード：EAN-13/JAN-13、EAN-8、UPC-A/E（アドオン対応）、Code 128（A/B/C 自動最適化・固定）、GS1-128、Code 39（Full ASCII）、Code 93、ITF、ITF-14（ベアラーバー）、NW-7、MSI、Pharmacode。X寸法（mm）+ dpi 指定、連番の一括生成、履歴
-- 2次元コード（専用タブ）：Data Matrix / GS1 DataMatrix（全30サイズ、ASCII・C40・Text・Base256 自動最適化、ECI）、PDF417（テキスト・数字・バイト圧縮、誤り訂正レベル0〜8、列数1〜30）、Aztec Code（コンパクト1〜4層・フルレンジ1〜32層、誤り訂正の割合指定）。1セルの px / mm + dpi 指定、一括生成、履歴
+- バーコード：EAN-13/JAN-13、EAN-8、UPC-A/E（アドオン対応）、Code 128（A/B/C 自動最適化・固定）、GS1-128、Code 39（Full ASCII）、Code 93、ITF、ITF-14（ベアラーバー）、NW-7、MSI、Pharmacode。X寸法（mm）+ dpi 指定、印刷サイズ（X寸法ごとの幅・高さ・ドット数）、連番の一括生成、履歴
+- 2次元コード（専用タブ）：Data Matrix / GS1 DataMatrix（全30サイズ、ASCII・C40・Text・Base256 自動最適化、ECI）、PDF417（テキスト・数字・バイト圧縮、誤り訂正レベル0〜8、列数1〜30）、Aztec Code（コンパクト1〜4層・フルレンジ1〜32層、誤り訂正の割合指定）。1セルの px / mm + dpi 指定、容量テーブル（サイズ・層・誤り訂正レベルごとの最大文字数と使用率）、一括生成、履歴
 - 読取：カメラ・画像から QR・マイクロQR・rMQR・主なバーコードを読み取り、連結の結合・解凍・画像表示。Wi-Fi・連絡先（.vcf 保存）・予定（.ics 保存）・電話・SMS・メール・位置情報は種類に応じた操作を表示。連続スキャンと読取履歴（回数の集計、CSV書き出し）
 - 容量テーブル：現在の設定の前後を表示し、入力が収まる行・最小の型番・使用率を表示
 - デザイン：色・透過・余白、中央のロゴ／囲み文字、ラベル枠、読取検証（zxing-cpp）
@@ -42,6 +42,7 @@ npm run dev
 - `src/lib/encoder/capacity.test.ts`：容量テーブルの最大文字数ちょうどが入り、1文字多いと入らないことを全行で確認します。
 - `src/lib/barcode/barcode.test.ts`：バーコードのバー・スペース幅が bwip-js と一致し、zxing-cpp で読み取れることを確認します。
 - `e2e/`：PC とスマホの2つの画面サイズで、生成・読取検証・保存・読取・一括生成・履歴・設定の保存・スクロール時のプレビュー表示を Playwright で確認し、全モード・全タブ（ライト／ダーク）を axe-core で WCAG 2.2 AA に照らして検査します。
+- `src/lib/barcode/capacity.test.ts`：2次元コードの容量テーブルの最大文字数ちょうどが入り、1文字多いと入らないことを全行で確認します。
 - `src/lib/barcode/pdf417.test.ts`・`aztec.test.ts`：同じ符号語・ビット列から作ったシンボルが bwip-js とモジュール単位で一致し（PDF417 は複数の列数・誤り訂正レベル、Aztec はコンパクト1〜4層とフルレンジ1〜32層）、zxing-cpp で読み取れることを確認します。PDF417 の符号語パターン表は `scripts/gen-pdf417-table.mjs` で再生成します。
 - `src/lib/barcode/datamatrix.test.ts`：Data Matrix の全サイズのモジュール配置が bwip-js と一致し、zxing-cpp で読み取れることを確認します。
 

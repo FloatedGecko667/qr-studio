@@ -136,6 +136,8 @@ const FNC1 = 232;
 const UPPER_SHIFT = 235;
 const LATCH_TEXT = 239;
 const ECI = 241;
+/** Codewords that start the data with an ECI designator. */
+export const eciPrefix = (eci?: number): number[] => (eci !== undefined ? [ECI, eci + 1] : []);
 const UNLATCH = 254;
 
 const isDigit = (t: DmToken | undefined): t is number => typeof t === 'number' && t >= 48 && t <= 57;
@@ -365,7 +367,7 @@ export interface DmResult {
 /** Chooses the smallest symbol of the requested shape (or the fixed size) that fits. */
 export function encodeDataMatrix(tokens: readonly DmToken[], opts: { shape: DmShape; size: string; eci?: number }): DmResult {
   if (tokens.length === 0) throw new BarcodeError('barcode.error.empty');
-  const prefix = opts.eci !== undefined ? [ECI, opts.eci + 1] : [];
+  const prefix = eciPrefix(opts.eci);
   const candidates = DM_SIZES.filter((s) =>
     opts.size !== 'auto' ? dmSizeLabel(s) === opts.size : opts.shape === 'auto' || (opts.shape === 'square') === (s.rows === s.cols),
   );

@@ -46,6 +46,8 @@ export interface BarcodeOptions {
   pdfColumns: number | 'auto';
   /** Aztec minimum error correction in percent of the symbol. */
   aztecEcc: number;
+  /** Aztec: 'auto' or a fixed layout such as "compact-2" / "full-10". */
+  aztecSize: string;
 }
 
 export const DEFAULT_BARCODE_OPTIONS: BarcodeOptions = {
@@ -61,6 +63,7 @@ export const DEFAULT_BARCODE_OPTIONS: BarcodeOptions = {
   pdfLevel: 'auto',
   pdfColumns: 'auto',
   aztecEcc: 23,
+  aztecSize: 'auto',
 };
 
 export type BarKind = 'bar' | 'guard' | 'addon';
@@ -116,6 +119,8 @@ export interface MatrixSymbol {
   dataLength: number;
   /** Symbol size, e.g. "16x16". */
   sizeLabel: string;
+  /** Option value of this size in the capacity table (size label, layout id or EC level). */
+  sizeId: string;
   usedCodewords: number;
   dataCodewords: number;
 }

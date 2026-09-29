@@ -229,21 +229,44 @@ export interface AztecResult extends AztecLayout {
   capacityWords: number;
 }
 
-/** Smallest symbol that fits `bits` with at least `eccPercent` of check words (plus 3 words). */
-export function chooseAztecLayout(bits: readonly number[], eccPercent: number): AztecLayout & { words: number[] } {
-  const candidates: AztecLayout[] = [
-    ...[1, 2, 3, 4].map((layers) => ({ compact: true, layers })),
-    ...Array.from({ length: 29 }, (_, i) => ({ compact: false, layers: i + 4 })),
-  ];
+/** Symbol sizes in increasing order: compact 1-4 layers, then full range 4-32 layers. */
+export const AZTEC_LAYOUTS: readonly AztecLayout[] = [
+  ...[1, 2, 3, 4].map((layers) => ({ compact: true, layers })),
+  ...Array.from({ length: 29 }, (_, i) => ({ compact: false, layers: i + 4 })),
+];
+
+export const aztecLayoutId = (l: AztecLayout) => `${l.compact ? 'compact' : 'full'}-${l.layers}`;
+export const aztecModules = (l: AztecLayout) => {
+  const base = (l.compact ? 11 : 14) + l.layers * 4;
+  return l.compact ? base : base + 1 + 2 * Math.floor((Math.floor(base / 2) - 1) / 15);
+};
+
+export interface AztecFit {
+  /** Stuffed data words, or null when the data does not fit. */
+  words: number[] | null;
+  /** Bits needed (stuffed data + minimum check bits) and bits available. */
+  needBits: number;
+  usableBits: number;
+}
+
+/** Whether `bits` fit `layout` with at least `eccPercent` of check bits (plus 11 bits). */
+export function aztecFit(bits: readonly number[], layout: AztecLayout, eccPercent: number): AztecFit {
   const eccBits = Math.floor((bits.length * eccPercent) / 100) + 11;
+  const total = totalBits(layout.layers, layout.compact);
+  const w = wordSize(layout.layers);
+  const usableBits = total - (total % w);
+  const words = stuffBits(bits, w);
+  const needBits = words.length * w + eccBits;
+  const fits = bits.length + eccBits <= total && !(layout.compact && words.length > 64) && needBits <= usableBits;
+  return { words: fits ? words : null, needBits, usableBits };
+}
+
+/** Smallest symbol (or the fixed one) that fits `bits`. */
+export function chooseAztecLayout(bits: readonly number[], eccPercent: number, fixed?: string): AztecLayout & { words: number[] } {
+  const candidates = fixed ? AZTEC_LAYOUTS.filter((l) => aztecLayoutId(l) === fixed) : AZTEC_LAYOUTS;
   for (const c of candidates) {
-    const total = totalBits(c.layers, c.compact);
-    if (bits.length + eccBits > total) continue;
-    const w = wordSize(c.layers);
-    const words = stuffBits(bits, w);
-    const usable = total - (total % w);
-    if (c.compact && words.length > 64) continue;
-    if (words.length * w + eccBits <= usable) return { ...c, words };
+    const { words } = aztecFit(bits, c, eccPercent);
+    if (words) return { ...c, words };
   }
   throw new BarcodeError('barcode.error.aztecTooLong');
 }
@@ -363,9 +386,10 @@ export function buildAztec(dataWords: readonly number[], layout: AztecLayout): A
   return { compact, layers, size, modules, dataWords: dataWords.length, capacityWords: totalWords };
 }
 
-export function encodeAztec(bytes: readonly number[], opts: { eccPercent: number; eci?: number }): AztecResult {
+/** `size`: 'auto' or a layout id such as "compact-2" / "full-10". */
+export function encodeAztec(bytes: readonly number[], opts: { eccPercent: number; eci?: number; size?: string }): AztecResult {
   const bits = aztecBits(bytes, opts.eci);
-  const { words, ...layout } = chooseAztecLayout(bits, opts.eccPercent);
+  const { words, ...layout } = chooseAztecLayout(bits, opts.eccPercent, opts.size && opts.size !== 'auto' ? opts.size : undefined);
   return buildAztec(words, layout);
 }
 

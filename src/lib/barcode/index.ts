@@ -3,7 +3,7 @@ import { codabar } from './codabar';
 import { code128Widths, textTokens, type Token } from './code128';
 import { code39, decodeFullAscii } from './code39';
 import { code93 } from './code93';
-import { aztecSizeLabel, encodeAztec } from './aztec';
+import { aztecLayoutId, aztecSizeLabel, encodeAztec } from './aztec';
 import { dmSizeLabel, encodeDataMatrix, type DmToken } from './datamatrix';
 import { ean13, ean8, upca, upce } from './ean';
 import { itf, itf14, itfWidths } from './itf';
@@ -130,6 +130,7 @@ function matrix(tokens: DmToken[], o: BarcodeOptions, hrt: string, expected: str
     expected,
     dataLength: Array.from(hrt).length,
     sizeLabel: dmSizeLabel(r.size),
+    sizeId: dmSizeLabel(r.size),
     usedCodewords: r.used,
     dataCodewords: r.size.dataCw,
   };
@@ -172,6 +173,7 @@ function encodePdf(value: string, o: BarcodeOptions): MatrixSymbol {
     expected: [value],
     dataLength: Array.from(value).length,
     sizeLabel: `${r.columns} × ${r.rows} · EC${r.level}`,
+    sizeId: String(r.level),
     usedCodewords: r.used,
     dataCodewords: r.capacity,
   };
@@ -179,7 +181,7 @@ function encodePdf(value: string, o: BarcodeOptions): MatrixSymbol {
 
 function encodeAz(value: string, o: BarcodeOptions): MatrixSymbol {
   const { bytes, eci } = textBytes(value);
-  const r = encodeAztec(bytes, { eccPercent: o.aztecEcc, eci });
+  const r = encodeAztec(bytes, { eccPercent: o.aztecEcc, eci, size: o.aztecSize });
   return {
     kind: 'matrix',
     width: r.size,
@@ -191,18 +193,37 @@ function encodeAz(value: string, o: BarcodeOptions): MatrixSymbol {
     expected: [value],
     dataLength: Array.from(value).length,
     sizeLabel: aztecSizeLabel(r),
+    sizeId: aztecLayoutId(r),
     usedCodewords: r.dataWords,
     dataCodewords: r.capacityWords,
   };
 }
 
-function encodeGs1Dm(value: string, o: BarcodeOptions): { symbol: MatrixSymbol; warnings: string[] } {
+/** GS1 element string as Data Matrix tokens: FNC1 first and as the field separator. */
+function gs1DmTokens(value: string): { tokens: DmToken[]; text: string; warnings: string[] } {
   const p = buildGs1({ value });
   if (p.errors.length) throw new BarcodeError(p.errors[0]);
   const tokens: DmToken[] = ['FNC1'];
   for (const ch of p.text!) tokens.push(ch === '\x1d' ? 'FNC1' : ch.charCodeAt(0));
+  return { tokens, text: p.text!, warnings: p.warnings };
+}
+
+function encodeGs1Dm(value: string, o: BarcodeOptions): { symbol: MatrixSymbol; warnings: string[] } {
+  const { tokens, text, warnings } = gs1DmTokens(value);
   const hrt = value.replace(/\s+/g, '');
-  return { symbol: matrix(tokens, o, hrt, [hrt, p.text!]), warnings: p.warnings };
+  return { symbol: matrix(tokens, o, hrt, [hrt, text]), warnings };
+}
+
+/** The data a 2D encoder receives for `value` (for the capacity table), or null if invalid. */
+export function matrixInput(type: BarcodeType, value: string): { tokens: DmToken[]; eci?: number } | null {
+  if (value === '' || !IS_MATRIX.has(type)) return null;
+  try {
+    if (type === 'gs1-datamatrix') return { tokens: gs1DmTokens(value).tokens };
+    const { bytes, eci } = textBytes(value);
+    return { tokens: bytes, eci };
+  } catch {
+    return null;
+  }
 }
 
 function encodeSymbol(type: BarcodeType, value: string, o: BarcodeOptions): { symbol: BarcodeSymbol; warnings: string[] } {
