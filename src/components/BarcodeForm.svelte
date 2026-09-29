@@ -13,6 +13,7 @@
     type MsiCheck,
   } from '../lib/barcode';
   import { DM_SIZES, dmSizeLabel } from '../lib/barcode/datamatrix';
+  import { BARCODE_LIMITS } from '../lib/barcode/settings';
   import type { BarcodeState } from '../lib/barcode/state.svelte';
   import { formatNumber, t } from '../lib/i18n/index.svelte';
 
@@ -26,6 +27,8 @@
   // Whole-module ratios keep wide bars on the pixel grid.
   const RATIOS = [2, 3];
   const SHAPES: DmShape[] = ['square', 'rect', 'auto'];
+  const PDF_LEVELS = [0, 1, 2, 3, 4, 5, 6, 7, 8];
+  const PDF_COLUMNS = Array.from({ length: 30 }, (_, i) => i + 1);
   const matrix = $derived(IS_MATRIX.has(type));
   const groups = $derived(BARCODE_GROUPS.map((g) => ({ ...g, types: g.types.filter((x) => code.types.includes(x)) })).filter((g) => g.types.length));
   const dmSizes = $derived(DM_SIZES.filter((s) => o.dmShape === 'auto' || (o.dmShape === 'square') === (s.rows === s.cols)));
@@ -71,7 +74,42 @@
     <button type="button" class="btn small start" onclick={() => (code.value = SAMPLE_VALUES[type])}>{t('barcode.sample')}</button>
   {/if}
 
-  {#if matrix}
+  {#if type === 'pdf417'}
+    <div class="grid2">
+      <label class="field">
+        <span>{t('barcode.opt.pdfLevel')}</span>
+        <select
+          value={String(o.pdfLevel)}
+          onchange={(e) => code.updateOptions({ pdfLevel: e.currentTarget.value === 'auto' ? 'auto' : Number(e.currentTarget.value) })}>
+          <option value="auto">{t('barcode.opt.pdfLevelAuto')}</option>
+          {#each PDF_LEVELS as level (level)}
+            <option value={String(level)}>{level}（{2 ** (level + 1)} CW）</option>
+          {/each}
+        </select>
+      </label>
+      <label class="field">
+        <span>{t('barcode.opt.pdfColumns')}</span>
+        <select
+          value={String(o.pdfColumns)}
+          onchange={(e) => code.updateOptions({ pdfColumns: e.currentTarget.value === 'auto' ? 'auto' : Number(e.currentTarget.value) })}>
+          <option value="auto">{t('barcode.opt.auto')}</option>
+          {#each PDF_COLUMNS as c (c)}<option value={String(c)}>{c}</option>{/each}
+        </select>
+      </label>
+    </div>
+  {:else if type === 'aztec'}
+    <label class="field">
+      <span>{t('barcode.opt.aztecEcc', { n: o.aztecEcc })}</span>
+      <input
+        type="range"
+        min={BARCODE_LIMITS.aztecEcc[0]}
+        max={BARCODE_LIMITS.aztecEcc[1]}
+        step="1"
+        value={o.aztecEcc}
+        oninput={(e) => code.updateOptions({ aztecEcc: Number(e.currentTarget.value) })} />
+    </label>
+    <p class="muted">{t('barcode.opt.aztecEccHint')}</p>
+  {:else if matrix}
     <div class="grid2">
       <div class="field">
         <span class="label" id="dm-shape-label">{t('barcode.opt.dmShape')}</span>

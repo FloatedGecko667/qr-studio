@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { openApp, preview, switchMode } from './helpers.ts';
 
-for (const mode of ['QRコード', 'バーコード', 'Data Matrix'] as const) {
+for (const mode of ['QRコード', 'バーコード', '2次元コード'] as const) {
   test(`${mode}: the preview stays reachable while scrolling`, async ({ page, isMobile }) => {
     await openApp(page);
     await switchMode(page, mode);
@@ -26,7 +26,7 @@ for (const mode of ['QRコード', 'バーコード', 'Data Matrix'] as const) {
 
 test('no horizontal page scroll', async ({ page }) => {
   await openApp(page);
-  for (const mode of ['QRコード', 'バーコード', 'Data Matrix'] as const) {
+  for (const mode of ['QRコード', 'バーコード', '2次元コード'] as const) {
     await switchMode(page, mode);
     await expect(preview(page)).toBeVisible();
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);

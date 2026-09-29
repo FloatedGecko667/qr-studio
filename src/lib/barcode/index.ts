@@ -3,10 +3,12 @@ import { codabar } from './codabar';
 import { code128Widths, textTokens, type Token } from './code128';
 import { code39, decodeFullAscii } from './code39';
 import { code93 } from './code93';
+import { aztecSizeLabel, encodeAztec } from './aztec';
 import { dmSizeLabel, encodeDataMatrix, type DmToken } from './datamatrix';
 import { ean13, ean8, upca, upce } from './ean';
 import { itf, itf14, itfWidths } from './itf';
 import { msiData, msiWidths, pharmacodeWidths } from './msi';
+import { encodePdf417 } from './pdf417';
 import { digitsOnly } from './checksum';
 import {
   BarcodeError,
@@ -24,7 +26,7 @@ export * from './types';
 export const BARCODE_GROUPS: { id: string; types: BarcodeType[] }[] = [
   { id: 'retail', types: ['ean13', 'ean8', 'upca', 'upce'] },
   { id: 'industrial', types: ['code128', 'gs1-128', 'code39', 'code93', 'itf', 'itf14', 'codabar'] },
-  { id: '2d', types: ['datamatrix', 'gs1-datamatrix'] },
+  { id: '2d', types: ['datamatrix', 'gs1-datamatrix', 'pdf417', 'aztec'] },
   { id: 'special', types: ['code128a', 'code128b', 'code128c', 'msi', 'pharmacode'] },
 ];
 
@@ -47,6 +49,8 @@ export const BARCODE_LABELS: Record<BarcodeType, string> = {
   pharmacode: 'Pharmacode',
   datamatrix: 'Data Matrix',
   'gs1-datamatrix': 'GS1 DataMatrix',
+  pdf417: 'PDF417',
+  aztec: 'Aztec Code',
 };
 
 export const SAMPLE_VALUES: Record<BarcodeType, string> = {
@@ -68,10 +72,14 @@ export const SAMPLE_VALUES: Record<BarcodeType, string> = {
   pharmacode: '1234',
   datamatrix: 'QR Studio · Data Matrix 2026',
   'gs1-datamatrix': '(01)04912345678904(17)261231(10)ABC123',
+  pdf417: 'QR Studio · PDF417 2026',
+  aztec: 'QR Studio · Aztec Code 2026',
 };
 
 /** 2D symbologies rendered as a module grid. */
-export const IS_MATRIX: ReadonlySet<BarcodeType> = new Set(['datamatrix', 'gs1-datamatrix']);
+export const IS_MATRIX: ReadonlySet<BarcodeType> = new Set(['datamatrix', 'gs1-datamatrix', 'pdf417', 'aztec']);
+/** PDF417 rows are drawn this many modules tall (ISO/IEC 15438 recommends at least 3). */
+export const PDF417_ROW_HEIGHT = 3;
 
 /** Longest value accepted in the input field. */
 export const maxValueLength = (type: BarcodeType) => (IS_MATRIX.has(type) ? 3000 : 200);
@@ -132,10 +140,60 @@ function matrix(tokens: DmToken[], o: BarcodeOptions, hrt: string, expected: str
  * character set; anything else is UTF-8 with ECI 26.
  */
 function encodeDm(value: string, o: BarcodeOptions): MatrixSymbol {
+  const { bytes, eci } = textBytes(value);
+  return matrix(bytes, o, printable(value), [value], eci);
+}
+
+/** Bytes and ECI as for Data Matrix: ASCII plain, Latin-1 with ECI 3, anything else UTF-8 with ECI 26. */
+function textBytes(value: string): { bytes: number[]; eci?: number } {
   const codes = Array.from(value, (ch) => ch.codePointAt(0)!);
-  if (codes.every((c) => c < 0x80)) return matrix(codes, o, printable(value), [value]);
-  if (codes.every((c) => c <= 0xff)) return matrix(codes, o, printable(value), [value], 3);
-  return matrix(Array.from(new TextEncoder().encode(value)), o, printable(value), [value], 26);
+  if (codes.every((c) => c < 0x80)) return { bytes: codes };
+  if (codes.every((c) => c <= 0xff)) return { bytes: codes, eci: 3 };
+  return { bytes: Array.from(new TextEncoder().encode(value)), eci: 26 };
+}
+
+function encodePdf(value: string, o: BarcodeOptions): MatrixSymbol {
+  const { bytes, eci } = textBytes(value);
+  const r = encodePdf417(bytes, { level: o.pdfLevel, columns: o.pdfColumns, eci });
+  // Each codeword row is drawn PDF417_ROW_HEIGHT modules tall.
+  const height = r.rows * PDF417_ROW_HEIGHT;
+  const modules = new Uint8Array(r.width * height);
+  for (let y = 0; y < height; y++) {
+    const row = Math.floor(y / PDF417_ROW_HEIGHT);
+    modules.set(r.modules.subarray(row * r.width, (row + 1) * r.width), y * r.width);
+  }
+  return {
+    kind: 'matrix',
+    width: r.width,
+    height,
+    modules,
+    hrt: printable(value),
+    quiet: [2, 2],
+    expected: [value],
+    dataLength: Array.from(value).length,
+    sizeLabel: `${r.columns} × ${r.rows} · EC${r.level}`,
+    usedCodewords: r.used,
+    dataCodewords: r.capacity,
+  };
+}
+
+function encodeAz(value: string, o: BarcodeOptions): MatrixSymbol {
+  const { bytes, eci } = textBytes(value);
+  const r = encodeAztec(bytes, { eccPercent: o.aztecEcc, eci });
+  return {
+    kind: 'matrix',
+    width: r.size,
+    height: r.size,
+    modules: r.modules,
+    hrt: printable(value),
+    // The bullseye finder needs no quiet zone; a small margin still helps phone cameras.
+    quiet: [1, 1],
+    expected: [value],
+    dataLength: Array.from(value).length,
+    sizeLabel: aztecSizeLabel(r),
+    usedCodewords: r.dataWords,
+    dataCodewords: r.capacityWords,
+  };
 }
 
 function encodeGs1Dm(value: string, o: BarcodeOptions): { symbol: MatrixSymbol; warnings: string[] } {
@@ -196,6 +254,10 @@ function encodeSymbol(type: BarcodeType, value: string, o: BarcodeOptions): { sy
       return { symbol: encodeDm(value, o), warnings: [] };
     case 'gs1-datamatrix':
       return encodeGs1Dm(value, o);
+    case 'pdf417':
+      return { symbol: encodePdf(value, o), warnings: [] };
+    case 'aztec':
+      return { symbol: encodeAz(value, o), warnings: [] };
     case 'pharmacode': {
       const widths = pharmacodeWidths(value);
       return { symbol: plain(widths, String(Number(digitsOnly(value))), [], [6, 6]), warnings: [] };

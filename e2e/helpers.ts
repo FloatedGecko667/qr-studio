@@ -6,7 +6,7 @@ export async function openApp(page: Page, path = '/'): Promise<void> {
   await expect(page.getByRole('heading', { name: 'プレビュー' })).toBeVisible();
 }
 
-export async function switchMode(page: Page, mode: 'QRコード' | 'バーコード' | 'Data Matrix'): Promise<void> {
+export async function switchMode(page: Page, mode: 'QRコード' | 'バーコード' | '2次元コード'): Promise<void> {
   await page.getByRole('group', { name: 'コードの種類' }).getByRole('button', { name: mode }).click();
 }
 

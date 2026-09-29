@@ -59,12 +59,28 @@ test.describe('generate', () => {
 
   test('Data Matrix: verifies', async ({ page }) => {
     await openApp(page);
-    await switchMode(page, 'Data Matrix');
+    await switchMode(page, '2次元コード');
     await page.getByLabel('データ', { exact: true }).fill('E2E Data Matrix');
     const card = preview(page);
     await card.getByRole('button', { name: '検証する' }).click();
     await expect(card.getByText(/読み取れました/)).toBeVisible({ timeout: 20_000 });
   });
+
+  for (const [type, value] of [
+    ['PDF417', 'E2E PDF417 日本語 0123456789012345'],
+    ['Aztec Code', 'E2E Aztec Code 日本語 0123456789'],
+  ] as const) {
+    test(`${type}: generates and verifies`, async ({ page }) => {
+      await openApp(page);
+      await switchMode(page, '2次元コード');
+      await page.getByRole('combobox', { name: '種類', exact: true }).selectOption({ label: type });
+      await page.getByLabel('データ', { exact: true }).fill(value);
+      const card = preview(page);
+      await expect(card.getByRole('img', { name: new RegExp(type) })).toBeVisible();
+      await card.getByRole('button', { name: '検証する' }).click();
+      await expect(card.getByText(/読み取れました/)).toBeVisible({ timeout: 20_000 });
+    });
+  }
 
   test('settings: theme and language persist across reloads', async ({ page }) => {
     await openApp(page);

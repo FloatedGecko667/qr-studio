@@ -67,6 +67,9 @@ export const BARCODE_LIMITS = {
   moduleMm: [0.1, 2],
   dpi: [72, 1200],
   wideRatio: [2, 3],
+  pdfLevel: [0, 8],
+  pdfColumns: [1, 30],
+  aztecEcc: [5, 90],
 } as const;
 
 const clamp = (v: number, [lo, hi]: readonly [number, number]) => (Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : lo);
@@ -109,11 +112,12 @@ export function normalizeBarcodeOutput(o: BarcodeOutput): BarcodeOutput {
 
 export function normalizeBarcodeOptions(o: BarcodeOptions): BarcodeOptions {
   const guards = ['A', 'B', 'C', 'D'] as const;
+  const L = BARCODE_LIMITS;
   const dmShape = oneOf(o.dmShape, ['auto', 'square', 'rect'] as const, 'square');
   return {
     checkDigit: o.checkDigit === true,
     fullAscii: o.fullAscii === true,
-    wideRatio: Math.round(clamp(o.wideRatio, BARCODE_LIMITS.wideRatio)),
+    wideRatio: Math.round(clamp(o.wideRatio, L.wideRatio)),
     msiCheck: oneOf(o.msiCheck, ['none', 'mod10', 'mod11', 'mod1010', 'mod1110'] as const, 'mod10'),
     codabarStart: oneOf(o.codabarStart, guards, 'A'),
     codabarStop: oneOf(o.codabarStop, guards, 'A'),
@@ -123,6 +127,9 @@ export function normalizeBarcodeOptions(o: BarcodeOptions): BarcodeOptions {
     dmSize: DM_SIZES.some((s) => dmSizeLabel(s) === o.dmSize && (dmShape === 'auto' || (dmShape === 'square') === (s.rows === s.cols)))
       ? o.dmSize
       : 'auto',
+    pdfLevel: o.pdfLevel === 'auto' ? 'auto' : Math.round(clamp(Number(o.pdfLevel), L.pdfLevel)),
+    pdfColumns: o.pdfColumns === 'auto' ? 'auto' : Math.round(clamp(Number(o.pdfColumns), L.pdfColumns)),
+    aztecEcc: Math.round(clamp(Number(o.aztecEcc), L.aztecEcc)),
   };
 }
 

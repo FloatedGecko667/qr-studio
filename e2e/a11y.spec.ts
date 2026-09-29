@@ -3,7 +3,7 @@ import { expect, test } from '@playwright/test';
 import { openApp, openTab, switchMode } from './helpers.ts';
 
 const TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
-const MODES = ['QRコード', 'バーコード', 'Data Matrix'] as const;
+const MODES = ['QRコード', 'バーコード', '2次元コード'] as const;
 const TABS = ['生成', '一括生成', '読取', '履歴'] as const;
 
 for (const scheme of ['light', 'dark'] as const) {

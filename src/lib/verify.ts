@@ -12,7 +12,7 @@ export interface VerifyResult {
 let prepared = false;
 
 export const QR_FORMATS: ReadInputBarcodeFormat[] = ['QRCode', 'MicroQRCode', 'rMQRCode'];
-export const BARCODE_FORMATS: ReadInputBarcodeFormat[] = ['AllLinear', 'DataMatrix'];
+export const BARCODE_FORMATS: ReadInputBarcodeFormat[] = ['AllLinear', 'DataMatrix', 'PDF417', 'Aztec'];
 export const SCAN_FORMATS: ReadInputBarcodeFormat[] = [...QR_FORMATS, ...BARCODE_FORMATS];
 
 /** Decodes symbols with zxing-cpp (loaded on first use, served locally). */

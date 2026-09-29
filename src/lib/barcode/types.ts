@@ -16,7 +16,9 @@ export type BarcodeType =
   | 'msi'
   | 'pharmacode'
   | 'datamatrix'
-  | 'gs1-datamatrix';
+  | 'gs1-datamatrix'
+  | 'pdf417'
+  | 'aztec';
 
 export type MsiCheck = 'none' | 'mod10' | 'mod11' | 'mod1010' | 'mod1110';
 export type CodabarGuard = 'A' | 'B' | 'C' | 'D';
@@ -38,6 +40,12 @@ export interface BarcodeOptions {
   dmShape: DmShape;
   /** Data Matrix: 'auto' or a fixed size such as "16x16". */
   dmSize: string;
+  /** PDF417 error correction level 0-8, or 'auto' (recommended for the data size). */
+  pdfLevel: number | 'auto';
+  /** PDF417 data columns 1-30, or 'auto'. */
+  pdfColumns: number | 'auto';
+  /** Aztec minimum error correction in percent of the symbol. */
+  aztecEcc: number;
 }
 
 export const DEFAULT_BARCODE_OPTIONS: BarcodeOptions = {
@@ -50,6 +58,9 @@ export const DEFAULT_BARCODE_OPTIONS: BarcodeOptions = {
   addon: '',
   dmShape: 'square',
   dmSize: 'auto',
+  pdfLevel: 'auto',
+  pdfColumns: 'auto',
+  aztecEcc: 23,
 };
 
 export type BarKind = 'bar' | 'guard' | 'addon';
