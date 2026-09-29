@@ -6,6 +6,8 @@
   import UsageMeter from './UsageMeter.svelte';
   import ImageInput from './ImageInput.svelte';
   import GeoInput from './GeoInput.svelte';
+  import TemplatePicker from './TemplatePicker.svelte';
+  import { TEMPLATE_KINDS_EXCLUDED } from '../lib/storage/templates';
 
   const form = $derived(FORMS[app.kind]);
   const values = $derived(app.fields[app.kind]);
@@ -53,6 +55,7 @@
     {/each}
   </div>
 
+  {#if !TEMPLATE_KINDS_EXCLUDED.has(app.kind)}<TemplatePicker />{/if}
   {#if app.kind === 'image'}<ImageInput />{/if}
   {#if app.kind === 'geo'}<GeoInput />{/if}
 
