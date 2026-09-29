@@ -6,7 +6,9 @@
   import { deletePartial, listPartials, savePartial } from '../lib/storage/scanStore';
   import { detectImage, extensionForMime } from '../lib/imageData';
   import { downloadBlob } from '../lib/export/download';
+  import { scanLog } from '../lib/scanLogState.svelte';
   import ScanActions from './ScanActions.svelte';
+  import ScanLog from './ScanLog.svelte';
 
   const MAX_EDGE = 1280;
   const INTERVAL_MS = 250;
@@ -63,14 +65,18 @@
     return ctx.getImageData(0, 0, canvas.width, canvas.height);
   }
 
-  /** Reads all symbols in the image; returns true once a complete payload is found. */
-  async function process(image: ImageData, tryHarder: boolean): Promise<boolean> {
+  /**
+   * Reads the symbols in the image and logs each complete payload. Returns true once one is
+   * found; with `all`, keeps going so every code in the image is logged.
+   */
+  async function process(image: ImageData, tryHarder: boolean, all: boolean): Promise<boolean> {
+    let found = false;
     await loaded;
     const { readSymbols, SCAN_FORMATS } = await import('../lib/verify');
-    const found = await readSymbols(image, 16, tryHarder, SCAN_FORMATS);
+    const read = await readSymbols(image, 16, tryHarder, SCAN_FORMATS);
     // QR symbols first, so a barcode on the same package does not cut a structured-append read short.
     const isQr = (f: string) => /QR/i.test(f);
-    const symbols = [...found].sort((a, b) => Number(isQr(b.format)) - Number(isQr(a.format)));
+    const symbols = [...read].sort((a, b) => Number(isQr(b.format)) - Number(isQr(a.format)));
     for (const s of symbols) {
       const { outcome, key, changed, conflict } = collector.add(s);
       if (key) {
@@ -87,12 +93,14 @@
       }
       if (changed) partials = collector.list();
       if (outcome) {
-        result = outcome;
+        // A code held in front of the camera is read on every frame; the log ignores such repeats.
+        if (scanLog.record(outcome) !== 'repeat' || !result) result = outcome;
         if (viewKey === key) viewKey = null;
-        return true;
+        found = true;
+        if (!all) return true;
       }
     }
-    return false;
+    return found;
   }
 
   async function tick() {
@@ -101,7 +109,8 @@
     if (video.readyState >= 2 && video.videoWidth > 0) {
       busy = true;
       try {
-        if (await process(frameData(video, video.videoWidth, video.videoHeight), false)) {
+        const continuous = scanLog.prefs.continuous;
+        if ((await process(frameData(video, video.videoWidth, video.videoHeight), false, continuous)) && !continuous) {
           stop();
           return;
         }
@@ -115,6 +124,7 @@
   }
 
   async function start() {
+    scanLog.unlockAudio();
     error = '';
     notice = '';
     result = null;
@@ -157,6 +167,8 @@
     if (!files.length) return;
     error = '';
     result = null;
+    // Every code in every chosen image goes to the log; the last one is shown.
+    let found = false;
     for (const file of files) {
       let bitmap: ImageBitmap;
       try {
@@ -165,11 +177,10 @@
         error = t('scan.imageError');
         return;
       }
-      const found = await process(frameData(bitmap, bitmap.width, bitmap.height), true);
+      if (await process(frameData(bitmap, bitmap.width, bitmap.height), true, true)) found = true;
       bitmap.close();
-      if (found) return;
     }
-    if (!partials.length) error = t('scan.notFound');
+    if (!found && !partials.length) error = t('scan.notFound');
   }
 
   async function copy() {
@@ -225,6 +236,20 @@
       <input type="file" accept="image/*" multiple class="sr-only" onchange={onFile} />
     </label>
   </div>
+  <div class="row">
+    <label class="check">
+      <input type="checkbox" checked={scanLog.prefs.continuous} onchange={(e) => scanLog.setPrefs({ continuous: e.currentTarget.checked })} />
+      {t('scanLog.continuous')}
+    </label>
+    <label class="check">
+      <input type="checkbox" checked={scanLog.prefs.beep} onchange={(e) => {
+          scanLog.setPrefs({ beep: e.currentTarget.checked });
+          scanLog.unlockAudio();
+        }} />
+      {t('scanLog.beep')}
+    </label>
+  </div>
+  {#if scanLog.prefs.continuous}<p class="muted">{t('scanLog.continuousHint')}</p>{/if}
 
   <!-- svelte-ignore a11y_media_has_caption -->
   <video bind:this={video} class:hidden={!stream} muted playsinline aria-label={t('scan.camera')}></video>
@@ -308,6 +333,8 @@
     </div>
   {/if}
 </section>
+
+<ScanLog />
 
 <style>
   p {

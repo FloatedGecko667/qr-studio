@@ -184,7 +184,7 @@
   {:else if tab === 'batch'}
     <div class="narrow"><Batch /></div>
   {:else if tab === 'scan'}
-    <div class="narrow"><Scanner /></div>
+    <div class="narrow stack"><Scanner /></div>
   {:else}
     {#key mode}
       <div class="narrow"><History
