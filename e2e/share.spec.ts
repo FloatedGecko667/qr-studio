@@ -6,7 +6,7 @@ async function mockShare(page: Page, firstError?: string) {
   await page.addInitScript((err) => {
     const w = window as unknown as { shared: string[][] };
     w.shared = [];
-    let failNext = err;
+    let failNext: string | undefined = err;
     Object.assign(navigator, {
       canShare: (d: ShareData) => !!d.files?.every((f) => f.type !== 'application/pdf'),
       share: async (d: ShareData) => {

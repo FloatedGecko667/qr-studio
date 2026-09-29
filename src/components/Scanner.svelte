@@ -6,6 +6,7 @@
   import { deletePartial, listPartials, savePartial } from '../lib/storage/scanStore';
   import { detectImage, extensionForMime } from '../lib/imageData';
   import { downloadBlob } from '../lib/export/download';
+  import ScanActions from './ScanActions.svelte';
 
   const MAX_EDGE = 1280;
   const INTERVAL_MS = 250;
@@ -39,7 +40,6 @@
     });
   });
 
-  const isWebUrl = $derived(!!result && /^https?:\/\/\S+$/i.test(result.text.trim()));
   const image = $derived(result ? detectImage(result.bytes, result.text) : null);
   const imageUrl = $derived(image ? URL.createObjectURL(new Blob([image.bytes as Uint8Array<ArrayBuffer>], { type: image.mime })) : null);
   $effect(() => {
@@ -303,10 +303,8 @@
       <div class="row">
         {#if image}<button type="button" class="btn small primary" onclick={saveImage}>{t('scan.saveImage')}</button>{/if}
         <button type="button" class="btn small" onclick={copy}>{copied ? t('output.copied') : t('output.copyText')}</button>
-        {#if isWebUrl}
-          <a class="btn small" href={result.text.trim()} target="_blank" rel="noopener noreferrer">{t('scan.open')}</a>
-        {/if}
       </div>
+      {#if !image}<ScanActions text={result.text} />{/if}
     </div>
   {/if}
 </section>
@@ -410,9 +408,5 @@
   .cells li.current {
     outline: 3px solid var(--ok);
     outline-offset: 1px;
-  }
-  a.btn {
-    text-decoration: none;
-    color: inherit;
   }
 </style>

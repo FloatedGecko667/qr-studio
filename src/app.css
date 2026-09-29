@@ -178,6 +178,11 @@ input[type='radio'] {
   white-space: nowrap;
 }
 
+a.btn {
+  text-decoration: none;
+  color: inherit;
+}
+
 .btn:hover:not(:disabled) {
   background: var(--surface-2);
 }
