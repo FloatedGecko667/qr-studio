@@ -11,16 +11,23 @@
   import { t } from './lib/i18n/index.svelte';
   import { MODES, type Locale, type Mode, type Theme } from './lib/settings';
   import { applyTheme } from './lib/theme';
+  import { clearLaunchParams, launchTarget, type Tab } from './lib/launch';
   import { lazy } from './lib/ui/lazy';
   import { stickySidebar } from './lib/ui/stickySidebar';
 
-  type Tab = 'generate' | 'batch' | 'scan' | 'history';
   const TABS: Record<Mode, Tab[]> = {
     qr: ['generate', 'batch', 'scan', 'history'],
     barcode: ['generate', 'batch', 'scan', 'history'],
     datamatrix: ['generate', 'batch', 'scan', 'history'],
   };
-  let tab: Tab = $state('generate');
+  // App shortcuts open a given screen (?mode=…&tab=…); the parameters are then removed.
+  const launch = launchTarget(location.search);
+  if (launch.mode && launch.mode !== app.settings.mode) {
+    app.settings.mode = launch.mode;
+    app.persist();
+  }
+  clearLaunchParams();
+  let tab: Tab = $state(launch.tab ?? 'generate');
   let licensesOpen = $state(false);
   let ribbonHeight = $state(0);
   let settingsOpen = $state(false);

@@ -22,7 +22,7 @@ test('Wi-Fi: shows the network and copies the password', async ({ page, context,
   await openApp(page);
   await kind(page, 'Wi-Fi').click();
   await page.getByLabel('ネットワーク名（SSID）').fill('Office;5G');
-  await page.getByLabel('パスワード').fill('s3cret:pw');
+  await page.getByLabel('パスワード', { exact: true }).fill('s3cret:pw');
   await generateAndScan(page);
 
   const region = actions(page);
