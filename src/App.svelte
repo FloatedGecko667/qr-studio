@@ -1,12 +1,9 @@
 <script lang="ts">
-  import Batch from './components/Batch.svelte';
   import CapacityTable from './components/CapacityTable.svelte';
   import ContentForm from './components/ContentForm.svelte';
-  import History from './components/History.svelte';
   import Licenses from './components/Licenses.svelte';
   import Preview from './components/Preview.svelte';
   import PreviewDock from './components/PreviewDock.svelte';
-  import Scanner from './components/Scanner.svelte';
   import StyleOptions from './components/StyleOptions.svelte';
   import SymbolOptions from './components/SymbolOptions.svelte';
   import UpdatePrompt from './components/UpdatePrompt.svelte';
@@ -14,6 +11,7 @@
   import { t } from './lib/i18n/index.svelte';
   import { MODES, type Locale, type Mode, type Theme } from './lib/settings';
   import { applyTheme } from './lib/theme';
+  import { lazy } from './lib/ui/lazy';
   import { stickySidebar } from './lib/ui/stickySidebar';
 
   type Tab = 'generate' | 'batch' | 'scan' | 'history';
@@ -62,13 +60,11 @@
     app.persist();
   }
 
-  let barcodeUi: Promise<typeof import('./components/barcode')> | null = null;
-  const loadBarcodeUi = () =>
-    (barcodeUi ??= import('./components/barcode').catch((e) => {
-      // Allow a retry on the next switch instead of caching the failure.
-      barcodeUi = null;
-      throw e;
-    }));
+  // Screens other than the QR generator load on first use to keep the initial bundle small.
+  const loadBarcodeUi = lazy(() => import('./components/barcode'));
+  const loadBatch = lazy(() => import('./components/Batch.svelte'));
+  const loadScanner = lazy(() => import('./components/Scanner.svelte'));
+  const loadHistory = lazy(() => import('./components/History.svelte'));
 
   function setMode(next: Mode) {
     app.settings.mode = next;
@@ -182,18 +178,36 @@
       </div>
     </div>
   {:else if tab === 'batch'}
-    <div class="narrow"><Batch /></div>
+    {#await loadBatch()}
+      <p class="muted loading">…</p>
+    {:then { default: Batch }}
+      <div class="narrow"><Batch /></div>
+    {:catch}
+      <p class="msg error">{t('app.loadError')}</p>
+    {/await}
   {:else if tab === 'scan'}
-    <div class="narrow stack"><Scanner /></div>
+    {#await loadScanner()}
+      <p class="muted loading">…</p>
+    {:then { default: Scanner }}
+      <div class="narrow stack"><Scanner /></div>
+    {:catch}
+      <p class="msg error">{t('app.loadError')}</p>
+    {/await}
   {:else}
-    {#key mode}
-      <div class="narrow"><History
-        {mode}
-        onRestore={(m) => {
-          setMode(m);
-          tab = 'generate';
-        }} /></div>
-    {/key}
+    {#await loadHistory()}
+      <p class="muted loading">…</p>
+    {:then { default: History }}
+      {#key mode}
+        <div class="narrow"><History
+          {mode}
+          onRestore={(m) => {
+            setMode(m);
+            tab = 'generate';
+          }} /></div>
+      {/key}
+    {:catch}
+      <p class="msg error">{t('app.loadError')}</p>
+    {/await}
   {/if}
 </main>
 
