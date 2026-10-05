@@ -3,7 +3,8 @@
   import { renderBarcodeSvg } from '../lib/barcode/render';
   import { barcodeSize } from '../lib/barcode/settings';
   import type { BarcodeState } from '../lib/barcode/state.svelte';
-  import { BATCH_LIMIT, decodeCsv, itemsFromCsv, itemsFromLines, serialLines, type BatchItem, type SerialSpec } from '../lib/batch';
+  import { BATCH_LIMIT, CSV_MAX_BYTES, readCsvFile, itemsFromCsv, itemsFromLines, serialLines, type BatchItem, type SerialSpec } from '../lib/batch';
+  import { launchedCsv } from '../lib/launchFiles.svelte';
   import { exportSized, extensionFor, pdfSource, svgsToPdf, type PdfSource } from '../lib/compose';
   import { downloadBlob, zipFiles } from '../lib/export/download';
   import { formatNumber, t } from '../lib/i18n/index.svelte';
@@ -27,12 +28,26 @@
   const items: BatchItem[] = $derived(Array.isArray(parsed) ? parsed : []);
   const sample = $derived(SAMPLE_VALUES[code.settings.type]);
 
-  async function loadCsv(e: Event) {
-    const file = (e.currentTarget as HTMLInputElement).files?.[0];
-    if (!file) return;
-    input = decodeCsv(new Uint8Array(await file.arrayBuffer()));
+  let csvError = $state('');
+
+  function useCsv(text: string | 'tooLarge') {
+    csvError = text === 'tooLarge' ? t('batch.csvTooLarge', { mb: CSV_MAX_BYTES / 1024 / 1024 }) : '';
+    if (text === 'tooLarge') return;
+    input = text;
     mode = 'csv';
   }
+
+  async function loadCsv(e: Event) {
+    const file = (e.currentTarget as HTMLInputElement).files?.[0];
+    if (file) useCsv(await readCsvFile(file));
+  }
+
+  // A CSV opened with the installed app (file handling).
+  $effect(() => {
+    if (launchedCsv.text === null) return;
+    useCsv(launchedCsv.text);
+    launchedCsv.text = null;
+  });
 
   function fillSerial() {
     mode = 'lines';
@@ -140,6 +155,8 @@
       <input type="file" accept=".csv,text/csv" class="sr-only" onchange={loadCsv} />
     </label>
   </div>
+
+  {#if csvError}<p class="msg error" role="alert">{csvError}</p>{/if}
 
   <label class="field">
     <span>{t('batch.input')}</span>

@@ -29,7 +29,8 @@ self.onmessage = async (e: MessageEvent<BatchRequest>) => {
     if (cancelled) break;
     const post = (r: BatchResponse) => self.postMessage(r);
     try {
-      const result = runPipeline(buildOptimized('text', { text: item.content }, msg.optimize), msg.symbol);
+      const payload = item.kind && item.fields ? buildOptimized(item.kind, item.fields, msg.optimize) : buildOptimized('text', { text: item.content }, msg.optimize);
+      const result = runPipeline(payload, msg.symbol);
       if (result.status !== 'ok') {
         const reason =
           result.status === 'invalid' ? result.errors[0] : result.status === 'unsupported' ? `symbol.unsupported.${result.feature}` : result.status === 'charset' ? 'status.charset' : 'batch.tooLong';

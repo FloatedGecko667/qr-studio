@@ -1,12 +1,25 @@
 import { sanitizeFilename } from './export/download';
+import type { PayloadKind } from './payload';
+import type { FormValues } from './payload/forms';
 
 export const BATCH_LIMIT = 1000;
+/** Far more than 1,000 rows of any input form; larger files are refused before reading. */
+export const CSV_MAX_BYTES = 5 * 1024 * 1024;
+
+/** Reads a CSV file (UTF-8 or Shift_JIS) unless it is too large. */
+export async function readCsvFile(file: Blob): Promise<string | 'tooLarge'> {
+  if (file.size > CSV_MAX_BYTES) return 'tooLarge';
+  return decodeCsv(new Uint8Array(await file.arrayBuffer()));
+}
 
 export interface BatchItem {
   /** 1-based source row for error messages. */
   row: number;
   content: string;
   filename: string;
+  /** Set for rows mapped from CSV columns: the form to build (`content` is then unused). */
+  kind?: PayloadKind;
+  fields?: FormValues;
 }
 
 /** Decodes CSV bytes as UTF-8 (with or without BOM), falling back to Shift_JIS. */

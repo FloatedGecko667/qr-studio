@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { decodeCsv, itemsFromCsv, itemsFromLines, parseCsv, serialLines } from './batch';
+import { CSV_MAX_BYTES, decodeCsv, itemsFromCsv, itemsFromLines, parseCsv, readCsvFile, serialLines } from './batch';
 import { sanitizeFilename, uniqueNames } from './export/download';
 
 describe('batch input', () => {
@@ -50,5 +50,14 @@ describe('serialLines', () => {
     expect(serialLines({ prefix: 'A-', suffix: 'Z', start: 8, step: 2, count: 3, digits: 3 })).toEqual(['A-008Z', 'A-010Z', 'A-012Z']);
     expect(serialLines({ prefix: '', suffix: '', start: 1, step: 1, count: 5000, digits: 0 })).toHaveLength(1000);
     expect(serialLines({ prefix: '', suffix: '', start: NaN, step: NaN, count: 2, digits: NaN })).toEqual(['0', '1']);
+  });
+});
+
+describe('readCsvFile', () => {
+  it('decodes UTF-8 and Shift_JIS files and refuses oversized ones', async () => {
+    expect(await readCsvFile(new Blob(['content\n日本'], { type: 'text/csv' }))).toBe('content\n日本');
+    // "日本" in Shift_JIS.
+    expect(await readCsvFile(new Blob([new Uint8Array([0x93, 0xfa, 0x96, 0x7b])]))).toBe('日本');
+    expect(await readCsvFile(new Blob([new Uint8Array(CSV_MAX_BYTES + 1)]))).toBe('tooLarge');
   });
 });

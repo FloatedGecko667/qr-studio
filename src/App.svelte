@@ -16,6 +16,7 @@
   import { lazy } from './lib/ui/lazy';
   import { isMac, isTextEntry, shortcutAction, undoAction, type Shortcut } from './lib/ui/keys';
   import { undoTargets } from './lib/undoTargets.svelte';
+  import { consumeLaunchedFiles } from './lib/launchFiles.svelte';
   import { stickySidebar } from './lib/ui/stickySidebar';
 
   const TABS: Record<Mode, Tab[]> = {
@@ -38,6 +39,7 @@
     return s;
   };
   let tab: Tab = $state(launch.tab ?? 'generate');
+  consumeLaunchedFiles(() => (tab = 'batch'));
   let licensesOpen = $state(false);
   let backupOpen = $state(false);
   let helpOpen = $state(false);

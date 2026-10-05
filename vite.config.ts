@@ -37,6 +37,8 @@ export default defineConfig({
           enctype: 'multipart/form-data',
           params: { files: [{ name: 'image', accept: ['image/*'] }] },
         },
+        // Opening a .csv with the installed app loads it into the batch screen (launchQueue).
+        file_handlers: [{ action: '/?tab=batch', accept: { 'text/csv': ['.csv'] } }],
       },
       workbox: {
         importScripts: ['share-target-sw.js'],
