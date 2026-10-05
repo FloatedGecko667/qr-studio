@@ -18,7 +18,9 @@ export type BarcodeType =
   | 'datamatrix'
   | 'gs1-datamatrix'
   | 'pdf417'
-  | 'aztec';
+  | 'aztec'
+  | 'bookjan'
+  | 'japanpost';
 
 export type MsiCheck = 'none' | 'mod10' | 'mod11' | 'mod1010' | 'mod1110';
 export type CodabarGuard = 'A' | 'B' | 'C' | 'D';
@@ -125,7 +127,35 @@ export interface MatrixSymbol {
   dataCodewords: number;
 }
 
-export type BarcodeSymbol = LinearSymbol | MatrixSymbol;
+/** Two or more linear symbols printed one above the other (書籍JAN: two EAN-13). */
+export interface StackedSymbol {
+  kind: 'stacked';
+  rows: LinearSymbol[];
+  /** Lines printed above the rows (e.g. "ISBN978-4-..." and "C3055 ¥2980E"). */
+  captions: string[];
+  /** Gap between rows in modules. */
+  gap: number;
+  hrt: string;
+  /** Every row must be read for the scan check to pass. */
+  expected: string[];
+  dataLength: number;
+}
+
+/** 4-state bar: full, ascender (upper half), descender (lower half), tracker (middle). */
+export type FourState = 'F' | 'A' | 'D' | 'T';
+
+/** Height-modulated postal barcode (Japan Post customer barcode). Bars are 1 unit wide on a 2-unit pitch. */
+export interface FourStateSymbol {
+  kind: 'fourstate';
+  bars: FourState[];
+  hrt: string;
+  quiet: [number, number];
+  /** Not readable by zxing-cpp: the scan check is not offered. */
+  expected: string[];
+  dataLength: number;
+}
+
+export type BarcodeSymbol = LinearSymbol | MatrixSymbol | StackedSymbol | FourStateSymbol;
 
 export type EncodeResult = { ok: true; symbol: BarcodeSymbol; warnings: string[] } | { ok: false; error: string; params?: Record<string, string | number> };
 

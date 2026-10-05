@@ -2,7 +2,7 @@
 // and colours are validated, as for QR output.
 import { FONT_FAMILY } from '../render/fontName';
 import { escapeXml, modulesPath, safeColor, type SvgResult } from '../render/svg';
-import type { BarcodeSymbol, LinearSymbol, MatrixSymbol } from './types';
+import type { BarcodeSymbol, FourState, FourStateSymbol, LinearSymbol, MatrixSymbol, StackedSymbol } from './types';
 
 export type BarcodeFont = 'jetbrains' | 'sans' | 'serif' | 'mono';
 export type Bearer = 'none' | 'bars' | 'frame';
@@ -62,7 +62,16 @@ function retailOverflow(sym: LinearSymbol, fs: number): [number, number] {
 }
 
 export function renderBarcodeSvg(sym: BarcodeSymbol, s: BarcodeStyle, fontDataUrl: string | null = null): SvgResult {
-  return sym.kind === 'matrix' ? renderMatrix(sym, s, fontDataUrl) : renderLinear(sym, s, fontDataUrl);
+  switch (sym.kind) {
+    case 'matrix':
+      return renderMatrix(sym, s, fontDataUrl);
+    case 'stacked':
+      return renderStacked(sym, s, fontDataUrl);
+    case 'fourstate':
+      return renderFourState(sym, s, fontDataUrl);
+    default:
+      return renderLinear(sym, s, fontDataUrl);
+  }
 }
 
 function openSvg(widthUnits: number, heightUnits: number, s: BarcodeStyle, fontDataUrl: string | null): string[] {
@@ -104,6 +113,14 @@ function renderMatrix(sym: MatrixSymbol, s: BarcodeStyle, fontDataUrl: string | 
 }
 
 function renderLinear(sym: LinearSymbol, s: BarcodeStyle, fontDataUrl: string | null): SvgResult {
+  const body = linearElements(sym, s, 0);
+  const out = openSvg(body.widthUnits, body.heightUnits, s, fontDataUrl);
+  out.push(...body.elements, '</svg>');
+  return { svg: out.join(''), widthUnits: body.widthUnits, heightUnits: body.heightUnits };
+}
+
+/** Bars, bearer bars and text of one linear symbol, drawn `oy` modules below the top. */
+function linearElements(sym: LinearSymbol, s: BarcodeStyle, oy: number): { elements: string[]; widthUnits: number; heightUnits: number } {
   const fg = safeColor(s.fg, '#000000');
   const fs = s.showText ? s.fontSize : 0;
   const band = s.showText ? fs + s.textGap : 0;
@@ -123,14 +140,14 @@ function renderLinear(sym: LinearSymbol, s: BarcodeStyle, fontDataUrl: string | 
   const widthUnits = r(sideBw * 2 + ql + sym.width + qr);
 
   const topBand = s.showText && !bottomText ? band : 0;
-  const barsTop = s.marginY + topBand + bw;
+  const barsTop = oy + s.marginY + topBand + bw;
   const barsBottom = barsTop + s.height;
   // EAN/UPC guard bars reach halfway into the digits below them (not across a bearer bar).
   const guardBottom = retail && bottomText && !bw ? barsBottom + s.textGap + fs * 0.5 : barsBottom;
-  const textTop = bottomText ? barsBottom + bw + s.textGap : s.marginY;
-  const heightUnits = r(barsBottom + bw + (bottomText ? band : 0) + s.marginY);
+  const textTop = bottomText ? barsBottom + bw + s.textGap : oy + s.marginY;
+  const heightUnits = r(barsBottom + bw + (bottomText ? band : 0) + s.marginY - oy);
 
-  const out = openSvg(widthUnits, heightUnits, s, fontDataUrl);
+  const out: string[] = [];
   const family = FONT_STACKS[s.font];
 
   const d: string[] = [];
@@ -174,6 +191,61 @@ function renderLinear(sym: LinearSymbol, s: BarcodeStyle, fontDataUrl: string | 
       texts.push(text(x0 + sym.width / 2, textTop + fs * ASCENT, fs, 'middle', sym.hrt, w > room ? room : undefined));
     }
     out.push(`<g fill="${fg}" font-family="${escapeXml(family)}">${texts.join('')}</g>`);
+  }
+  return { elements: out, widthUnits, heightUnits };
+}
+
+/**
+ * 書籍JAN: caption lines on top, then each row with its digits below, separated by `gap`.
+ * Rows always have their digits below and no bearer bars.
+ */
+function renderStacked(sym: StackedSymbol, s: BarcodeStyle, fontDataUrl: string | null): SvgResult {
+  const rowStyle: BarcodeStyle = { ...s, bearer: 'none', marginY: 0, textPosition: 'bottom' };
+  const lineHeight = s.fontSize * 1.2;
+  const captionBand = s.showText ? sym.captions.length * lineHeight + s.textGap : 0;
+  let y = s.marginY + captionBand;
+  const elements: string[] = [];
+  let widthUnits = 0;
+  sym.rows.forEach((row, i) => {
+    const body = linearElements(row, rowStyle, y);
+    elements.push(...body.elements);
+    widthUnits = Math.max(widthUnits, body.widthUnits);
+    y += body.heightUnits + (i < sym.rows.length - 1 ? sym.gap : 0);
+  });
+  const heightUnits = r(y + s.marginY);
+  const out = openSvg(widthUnits, heightUnits, s, fontDataUrl);
+  if (s.showText) {
+    // Long captions (the ISBN) are fitted to the symbol width rather than cut off.
+    for (const [i, c] of sym.captions.entries()) out.push(centredText(c, widthUnits / 2, s.marginY + i * lineHeight, s.fontSize, widthUnits - 2, s));
+  }
+  out.push(...elements, '</svg>');
+  return { svg: out.join(''), widthUnits, heightUnits };
+}
+
+/**
+ * Four-state bars in units of the bar width: pitch 2, full bar 6 tall, half bars 4, tracker 2
+ * (Japan Post at 10 pt: 0.6 mm bars, 1.2 mm pitch, 3.6 / 2.4 / 1.2 mm heights).
+ */
+const FOUR_STATE_SPAN: Record<FourState, [number, number]> = { F: [0, 6], A: [0, 4], D: [2, 6], T: [2, 4] };
+
+function renderFourState(sym: FourStateSymbol, s: BarcodeStyle, fontDataUrl: string | null): SvgResult {
+  const [ql, qr] = s.quietZone === 'auto' ? sym.quiet : [s.quietZone, s.quietZone];
+  const fs = s.showText ? s.fontSize : 0;
+  const band = s.showText ? fs + s.textGap : 0;
+  const top = s.showText && s.textPosition === 'top';
+  const barsTop = Math.max(s.marginY, ql) + (top ? band : 0);
+  const barsWidth = sym.bars.length * 2 - 1;
+  const widthUnits = ql + barsWidth + qr;
+  const heightUnits = r(barsTop + 6 + (top ? 0 : band) + Math.max(s.marginY, ql));
+  const out = openSvg(widthUnits, heightUnits, s, fontDataUrl);
+  const d = sym.bars.map((b, i) => {
+    const [y0, y1] = FOUR_STATE_SPAN[b];
+    return `M${ql + i * 2} ${r(barsTop + y0)}h1v${y1 - y0}h-1z`;
+  });
+  out.push(`<path fill="${safeColor(s.fg, '#000000')}" shape-rendering="crispEdges" d="${d.join('')}"/>`);
+  if (s.showText) {
+    const textTop = top ? Math.max(s.marginY, ql) : barsTop + 6 + s.textGap;
+    out.push(centredText(sym.hrt, widthUnits / 2, textTop, fs, widthUnits - 1, s));
   }
   out.push('</svg>');
   return { svg: out.join(''), widthUnits, heightUnits };

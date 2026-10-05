@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { HAS_ADDON } from '../lib/barcode';
+  import { barsWidth, HAS_ADDON } from '../lib/barcode';
   import { renderBarcodeSvg } from '../lib/barcode/render';
   import type { BarcodeState } from '../lib/barcode/state.svelte';
   import { formatNumber, t } from '../lib/i18n/index.svelte';
@@ -13,6 +13,14 @@
     [0.495, '150%'],
     [0.66, '200%'],
   ];
+  // Japan Post: the bar width follows the point size (0.6 mm at 10 pt).
+  const POSTAL_X: [number, string][] = [
+    [0.48, '8pt'],
+    [0.54, '9pt'],
+    [0.6, '10pt'],
+    [0.66, '11pt'],
+    [0.69, '11.5pt'],
+  ];
   const GENERAL_X: [number, string][] = [
     [0.19, ''],
     [0.25, ''],
@@ -23,10 +31,10 @@
 
   const res = $derived(code.result);
   const out = $derived(code.settings.output);
-  const symbol = $derived(res.ok && res.symbol.kind === 'linear' ? res.symbol : null);
+  const symbol = $derived(res.ok && res.symbol.kind !== 'matrix' ? res.symbol : null);
   const svg = $derived(symbol ? renderBarcodeSvg(symbol, code.settings.style) : null);
-  const retail = $derived(HAS_ADDON.has(code.settings.type));
-  const choices = $derived(retail ? RETAIL_X : GENERAL_X);
+  const retail = $derived(HAS_ADDON.has(code.settings.type) || code.settings.type === 'bookjan');
+  const choices = $derived(code.settings.type === 'japanpost' ? POSTAL_X : retail ? RETAIL_X : GENERAL_X);
   /** Printer dots per module at the current dpi (image output rounds the X dimension to them). */
   const dots = (x: number) => Math.max(1, Math.round((x * out.dpi) / 25.4));
   const mm = (v: number) => (Math.round(v * 10) / 10).toFixed(1);
@@ -46,7 +54,7 @@
         <dd>
           {t('printWidth.modulesValue', {
             total: formatNumber(Math.round(svg.widthUnits * 10) / 10),
-            bars: formatNumber(Math.round(symbol.width * 10) / 10),
+            bars: formatNumber(Math.round(barsWidth(symbol) * 10) / 10),
           })}
         </dd>
       </div>

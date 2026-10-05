@@ -5,7 +5,9 @@ import { code39, decodeFullAscii } from './code39';
 import { code93 } from './code93';
 import { aztecLayoutId, aztecSizeLabel, encodeAztec } from './aztec';
 import { dmSizeLabel, encodeDataMatrix, type DmToken } from './datamatrix';
+import { bookJan } from './bookJan';
 import { ean13, ean8, upca, upce } from './ean';
+import { japanPost } from './japanPost';
 import { itf, itf14, itfWidths } from './itf';
 import { msiData, msiWidths, pharmacodeWidths } from './msi';
 import { encodePdf417 } from './pdf417';
@@ -27,6 +29,7 @@ export const BARCODE_GROUPS: { id: string; types: BarcodeType[] }[] = [
   { id: 'retail', types: ['ean13', 'ean8', 'upca', 'upce'] },
   { id: 'industrial', types: ['code128', 'gs1-128', 'code39', 'code93', 'itf', 'itf14', 'codabar'] },
   { id: '2d', types: ['datamatrix', 'gs1-datamatrix', 'pdf417', 'aztec'] },
+  { id: 'japan', types: ['bookjan', 'japanpost'] },
   { id: 'special', types: ['code128a', 'code128b', 'code128c', 'msi', 'pharmacode'] },
 ];
 
@@ -51,6 +54,8 @@ export const BARCODE_LABELS: Record<BarcodeType, string> = {
   'gs1-datamatrix': 'GS1 DataMatrix',
   pdf417: 'PDF417',
   aztec: 'Aztec Code',
+  bookjan: '書籍JAN / Book JAN',
+  japanpost: '郵便カスタマ / Japan Post',
 };
 
 export const SAMPLE_VALUES: Record<BarcodeType, string> = {
@@ -74,12 +79,21 @@ export const SAMPLE_VALUES: Record<BarcodeType, string> = {
   'gs1-datamatrix': '(01)04912345678904(17)261231(10)ABC123',
   pdf417: 'QR Studio · PDF417 2026',
   aztec: 'QR Studio · Aztec Code 2026',
+  bookjan: '978-4-7741-9999-3 C3055 ¥2980',
+  japanpost: '100-0013 東京都千代田区霞が関1丁目3番2号',
 };
 
 /** 2D symbologies rendered as a module grid. */
 export const IS_MATRIX: ReadonlySet<BarcodeType> = new Set(['datamatrix', 'gs1-datamatrix', 'pdf417', 'aztec']);
 /** PDF417 rows are drawn this many modules tall (ISO/IEC 15438 recommends at least 3). */
 export const PDF417_ROW_HEIGHT = 3;
+
+/** Width of the bar pattern in modules (stacked: the widest row; 4-state: bars on a 2-unit pitch). */
+export function barsWidth(sym: Exclude<BarcodeSymbol, MatrixSymbol>): number {
+  if (sym.kind === 'stacked') return Math.max(...sym.rows.map((r) => r.width));
+  if (sym.kind === 'fourstate') return sym.bars.length * 2 - 1;
+  return sym.width;
+}
 
 /** Longest value accepted in the input field. */
 export const maxValueLength = (type: BarcodeType) => (IS_MATRIX.has(type) ? 3000 : 200);
@@ -279,6 +293,10 @@ function encodeSymbol(type: BarcodeType, value: string, o: BarcodeOptions): { sy
       return { symbol: encodePdf(value, o), warnings: [] };
     case 'aztec':
       return { symbol: encodeAz(value, o), warnings: [] };
+    case 'bookjan':
+      return { symbol: bookJan(value), warnings: [] };
+    case 'japanpost':
+      return { symbol: japanPost(value), warnings: [] };
     case 'pharmacode': {
       const widths = pharmacodeWidths(value);
       return { symbol: plain(widths, String(Number(digitsOnly(value))), [], [6, 6]), warnings: [] };

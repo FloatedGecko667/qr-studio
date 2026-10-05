@@ -50,6 +50,12 @@ test('QR keeps its colours while the page is darkened', async ({ page }) => {
   const qr = await tones(page, symbol);
   expect(qr.dark).toBeGreaterThan(0.2);
   expect(qr.light).toBeGreaterThan(0.2);
+
+  // Still painted after the content (and so the SVG) changes.
+  await page.getByLabel('URL', { exact: true }).fill('https://example.com/changed-content');
+  await expect(symbol.locator('canvas')).toBeVisible();
+  const changed = await tones(page, symbol);
+  expect(changed.dark).toBeGreaterThan(0.2);
 });
 
 test('barcodes keep their colours too', async ({ page }) => {
@@ -60,6 +66,10 @@ test('barcodes keep their colours too', async ({ page }) => {
   const bars = await tones(page, symbol);
   expect(bars.dark).toBeGreaterThan(0.2);
   expect(bars.light).toBeGreaterThan(0.2);
+  // Another type replaces the SVG; the painted copy follows.
+  await page.getByRole('combobox', { name: 'バーコードの種類' }).selectOption({ label: '書籍JAN / Book JAN' });
+  await expect(symbol.locator('canvas')).toBeVisible();
+  expect((await tones(page, symbol)).dark).toBeGreaterThan(0.1);
 });
 
 test('the preview dock thumbnail keeps its colours on phones', async ({ page }) => {

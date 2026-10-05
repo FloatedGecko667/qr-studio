@@ -5,7 +5,7 @@ import { AZTEC_LAYOUTS, aztecLayoutId } from './aztec';
 import { DM_SIZES, dmSizeLabel } from './datamatrix';
 import { BARCODE_LABELS } from './index';
 import type { BarcodeStyle } from './render';
-import { DEFAULT_BARCODE_OPTIONS, type BarcodeOptions, type BarcodeType } from './types';
+import { DEFAULT_BARCODE_OPTIONS, type BarcodeOptions, type BarcodeSymbol, type BarcodeType } from './types';
 
 export interface BarcodeOutput {
   unit: 'px' | 'mm';
@@ -167,12 +167,12 @@ export interface BarcodeSize {
  * Raster output always uses a whole number of pixels per module so every bar keeps its exact
  * width; in mm mode the X dimension is rounded to the printer's dot grid.
  */
-/** Module size in px and mm for the symbol kind. */
-export function moduleSize(o: BarcodeOutput, kind: 'linear' | 'matrix'): { px: number; mm: number } {
+/** Module size in px and mm for the symbol kind (stacked and 4-state symbols use the linear X dimension). */
+export function moduleSize(o: BarcodeOutput, kind: BarcodeSymbol['kind']): { px: number; mm: number } {
   return kind === 'matrix' ? { px: o.matrixModulePx, mm: o.matrixModuleMm } : { px: o.modulePx, mm: o.moduleMm };
 }
 
-export function barcodeSize(r: Pick<SvgResult, 'widthUnits' | 'heightUnits'>, o: BarcodeOutput, kind: 'linear' | 'matrix' = 'linear'): BarcodeSize {
+export function barcodeSize(r: Pick<SvgResult, 'widthUnits' | 'heightUnits'>, o: BarcodeOutput, kind: BarcodeSymbol['kind'] = 'linear'): BarcodeSize {
   const m = moduleSize(o, kind);
   const dots = o.unit === 'px' ? m.px : Math.max(1, Math.round((m.mm * o.dpi) / 25.4));
   const mm = (v: number) => `${Math.round(v * 1000) / 1000}mm`;
