@@ -345,6 +345,7 @@ export const ja = {
   'scan.torchOff': 'ライトを消す',
   'scan.torchFailed': 'ライトを切り替えられませんでした',
   'scan.zoom': 'ズーム',
+  'scan.sharedNone': '共有された画像を受け取れませんでした（画像は30MBまで、10枚まで）',
   'scan.imageError': "画像を読み込めませんでした",
   'scan.notFound': "コードが見つかりませんでした",
   'scan.decodeError': "読み取り中にエラーが発生しました",

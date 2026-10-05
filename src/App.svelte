@@ -27,6 +27,13 @@
     app.persist();
   }
   clearLaunchParams();
+  // Images from the share target are read once, by the first scan tab that mounts.
+  let pendingShare = launch.shared;
+  const sharedOnce = () => {
+    const s = pendingShare;
+    pendingShare = undefined;
+    return s;
+  };
   let tab: Tab = $state(launch.tab ?? 'generate');
   let licensesOpen = $state(false);
   let ribbonHeight = $state(0);
@@ -199,7 +206,7 @@
     {#await loadScanner()}
       <p class="muted loading">…</p>
     {:then { default: Scanner }}
-      <div class="narrow stack"><Scanner /></div>
+      <div class="narrow stack"><Scanner shared={sharedOnce()} /></div>
     {:catch}
       <p class="msg error">{t('app.loadError')}</p>
     {/await}

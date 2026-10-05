@@ -30,8 +30,16 @@ export default defineConfig({
           { name: '2次元コードを作る', short_name: '2次元コード', url: '/?mode=datamatrix&tab=generate', icons: [{ src: 'pwa-192.png', sizes: '192x192', type: 'image/png' }] },
           { name: 'コードを読み取る', short_name: '読み取る', url: '/?tab=scan', icons: [{ src: 'pwa-192.png', sizes: '192x192', type: 'image/png' }] },
         ],
+        // Images shared from other apps (Android) open the scan tab; see public/share-target-sw.js.
+        share_target: {
+          action: '/share-target',
+          method: 'POST',
+          enctype: 'multipart/form-data',
+          params: { files: [{ name: 'image', accept: ['image/*'] }] },
+        },
       },
       workbox: {
+        importScripts: ['share-target-sw.js'],
         // Precache everything including the zxing wasm (~1 MB) and fonts so the app works offline.
         globPatterns: ['**/*.{js,css,html,svg,png,woff2,wasm}'],
         maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,

@@ -10,6 +10,10 @@
   import ScanActions from './ScanActions.svelte';
   import ScanLog from './ScanLog.svelte';
 
+  /** Set when the app was opened by sharing images to it (see public/share-target-sw.js). */
+  let { shared }: { shared?: 'files' | 'error' } = $props();
+
+  const SHARE_CACHE = 'qr-studio-share';
   const MAX_EDGE = 1280;
   const INTERVAL_MS = 250;
 
@@ -296,6 +300,32 @@
     input.value = '';
     void scanFiles(files);
   }
+
+  /** Reads the shared images from Cache Storage and deletes them at once. */
+  async function readShared() {
+    if (shared === 'error') {
+      error = t('scan.sharedNone');
+      return;
+    }
+    if (!('caches' in window)) return;
+    const files: File[] = [];
+    try {
+      const cache = await caches.open(SHARE_CACHE);
+      for (const req of await cache.keys()) {
+        const res = await cache.match(req);
+        const blob = await res?.blob();
+        if (blob) files.push(new File([blob], 'shared', { type: blob.type }));
+      }
+    } finally {
+      await caches.delete(SHARE_CACHE).catch(() => undefined);
+    }
+    if (files.length) await scanFiles(files);
+    else error = t('scan.sharedNone');
+  }
+
+  onMount(() => {
+    if (shared) void readShared();
+  });
 
   // Pasting an image anywhere on the scan tab reads it, unless the focus is in a text field.
   onMount(() => {

@@ -302,3 +302,8 @@
 - **カメラの操作：ライト・ズーム・カメラの切り替え**
   - 読み取り中、カメラが対応していれば「ライトをつける／消す」とズームのスライダーを表示する（`getCapabilities()` の `torch`・`zoom`。主に Android の Chrome。対応していない端末・ブラウザでは表示しない）。
   - カメラが2台以上あれば選択欄を表示し、選んだカメラで撮り直す。選んだカメラは読取の設定に保存し次回も使う（見つからなければ背面カメラに戻す）。カメラの名前は許可後にだけ取得できる。
+- **他のアプリの「共有」から読み取る（Web Share Target）**
+  - インストールしたアプリを共有先に加える（manifest の `share_target`、画像のみ）。写真アプリなどから共有すると読取タブが開き、画像の中のコードを読み取る。対応は主に Android の Chrome・Edge（iOS・Firefox は Web Share Target 非対応）。
+  - Service Worker（`public/share-target-sw.js` を Workbox の `importScripts` で読み込む）が POST `/share-target` を受け取り、画像を Cache Storage（`qr-studio-share`）に一時保存して `/?tab=scan&shared=1` へ移る。どこにも送信しない。
+  - 受け付けるのは画像だけ、1枚 30MB・10枚まで。読取タブは読み込んだらすぐ一時保存を削除する。読まれずに残ったものは Service Worker の起動（activate）時に1日を過ぎていれば削除する。受け取れなかった場合は理由を表示する。
+  - URL の `shared` パラメータは画面の切り替えにだけ使い、開いたあとは消す。

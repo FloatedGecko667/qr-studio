@@ -347,6 +347,7 @@ export const en: Record<keyof typeof ja, string> = {
   'scan.torchOff': 'Turn off light',
   'scan.torchFailed': 'Could not switch the light',
   'scan.zoom': 'Zoom',
+  'scan.sharedNone': 'No shared image was received (images up to 30 MB, 10 at a time)',
   'scan.imageError': "Could not load the image",
   'scan.notFound': "No code found",
   'scan.decodeError': "An error occurred while reading",
