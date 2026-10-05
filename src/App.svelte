@@ -1,5 +1,6 @@
 <script lang="ts">
   import CapacityTable from './components/CapacityTable.svelte';
+  import DistanceSize from './components/DistanceSize.svelte';
   import ContentForm from './components/ContentForm.svelte';
   import Licenses from './components/Licenses.svelte';
   import Preview from './components/Preview.svelte';
@@ -9,7 +10,7 @@
   import UpdatePrompt from './components/UpdatePrompt.svelte';
   import { app } from './lib/app.svelte';
   import { loadLocale, t } from './lib/i18n/index.svelte';
-  import { MODES, type Locale, type Mode, type Theme } from './lib/settings';
+  import { MODES, type Locale, type Mode, type Theme, type View } from './lib/settings';
   import { applyTheme } from './lib/theme';
   import { clearLaunchParams, launchTarget, type Tab } from './lib/launch';
   import { lazy } from './lib/ui/lazy';
@@ -83,6 +84,13 @@
   const loadScanner = lazy(() => import('./components/Scanner.svelte'));
   const loadBackup = lazy(() => import('./components/Backup.svelte'));
   const loadHistory = lazy(() => import('./components/History.svelte'));
+
+  const simple = $derived(app.settings.view === 'simple');
+
+  function setView(view: View) {
+    app.settings.view = view;
+    app.persist();
+  }
 
   function setMode(next: Mode) {
     app.settings.mode = next;
@@ -158,7 +166,21 @@
   </nav>
 </div>
 
+{#snippet viewBar()}
+  <div class="view-bar">
+    <div class="segmented" role="group" aria-label={t('view.label')}>
+      <button type="button" aria-pressed={simple} onclick={() => setView('simple')}>{t('view.simple')}</button>
+      <button type="button" aria-pressed={!simple} onclick={() => setView('detailed')}>{t('view.detailed')}</button>
+    </div>
+    <p class="muted">{t(simple ? 'view.simpleHint' : 'view.detailedHint')}</p>
+  </div>
+{/snippet}
+
 <main>
+  <p class="trust">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2 4 5v6c0 5 3.4 9.7 8 11 4.6-1.3 8-6 8-11V5zm-1.2 14.2-3.5-3.5 1.4-1.4 2.1 2.1 4.9-4.9 1.4 1.4z" /></svg>
+    {t('app.trust')}
+  </p>
   {#if mode !== 'qr' && (tab === 'generate' || tab === 'batch')}
     {#await loadBarcodeUi()}
       <p class="muted loading">…</p>
@@ -168,17 +190,20 @@
         {#if tab === 'batch'}
           <div class="narrow"><ui.BarcodeBatch {code} /></div>
         {:else}
-          <div class="layout with-capacity">
+          {@render viewBar()}
+          <div class="layout" class:with-capacity={!simple} class:simple>
             <div class="col inputs">
               <ui.BarcodeForm {code} />
-              <ui.BarcodeStyle {code} />
+              {#if !simple}<ui.BarcodeStyle {code} />{/if}
             </div>
             <div class="preview-slot" use:stickySidebar bind:this={previewEl}>
               <ui.BarcodePreview {code} />
             </div>
-            <div class="capacity-slot" use:stickySidebar>
-              {#if mode === 'datamatrix'}<ui.MatrixCapacity {code} />{:else}<ui.PrintWidth {code} />{/if}
-            </div>
+            {#if !simple}
+              <div class="capacity-slot" use:stickySidebar>
+                {#if mode === 'datamatrix'}<ui.MatrixCapacity {code} />{:else}<ui.PrintWidth {code} />{/if}
+              </div>
+            {/if}
           </div>
         {/if}
       {/key}
@@ -186,18 +211,24 @@
       <p class="msg error">{t('app.loadError')}</p>
     {/await}
   {:else if tab === 'generate'}
-    <div class="layout with-capacity">
+    {@render viewBar()}
+    <div class="layout" class:with-capacity={!simple} class:simple>
       <div class="col inputs">
         <ContentForm />
-        <SymbolOptions />
-        <StyleOptions />
+        {#if !simple}
+          <SymbolOptions />
+          <StyleOptions />
+        {/if}
       </div>
       <div class="preview-slot" use:stickySidebar bind:this={previewEl}>
         <Preview />
       </div>
-      <div class="capacity-slot" use:stickySidebar>
-        <CapacityTable />
-      </div>
+      {#if !simple}
+        <div class="capacity-slot col" use:stickySidebar>
+          <CapacityTable />
+          <DistanceSize />
+        </div>
+      {/if}
     </div>
   {:else if tab === 'batch'}
     {#await loadBatch()}
@@ -427,6 +458,36 @@
     .capacity-slot {
       position: sticky;
     }
+  }
+  .trust {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 0 0 10px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--ok);
+  }
+  .trust svg {
+    flex: none;
+    width: 16px;
+    height: 16px;
+  }
+  .view-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 12px;
+    margin-bottom: 12px;
+  }
+  .view-bar p {
+    margin: 0;
+    font-size: 12px;
+  }
+  /* Simple view: two columns, no capacity table; narrower so the code stays large and close. */
+  .layout.simple {
+    max-width: 1080px;
+    margin-inline: auto;
   }
   .loading {
     text-align: center;

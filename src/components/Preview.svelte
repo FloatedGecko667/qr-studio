@@ -13,13 +13,24 @@
   import { versionLabel } from '../lib/encoder';
   import type { Suggestion } from '../lib/pipeline';
   import { decompressText } from '../lib/optimize';
+  import { qrFileName } from '../lib/filename';
 
-  const out = $derived(app.settings.output);
   const style = $derived(app.settings.style);
   const pipe = $derived(app.pipeline);
   const svgs: SvgResult[] = $derived(
     pipe.status === 'ok' ? symbolSvgs(pipe.result.symbols, renderStyle(style, app.logoDataUrl, null)) : [],
   );
+  const simple = $derived(app.settings.view === 'simple');
+  /** Simple view saves a PNG at least this wide, large enough to print. */
+  const SIMPLE_MIN_PX = 1000;
+  const out: OutputSettings = $derived.by(() => {
+    const o = app.settings.output;
+    if (!simple) return o;
+    const w = svgs[0]?.widthUnits ?? 1;
+    return { ...o, unit: 'px', format: 'png', modulePx: Math.min(LIMITS.modulePx[1], Math.max(o.modulePx, Math.ceil(SIMPLE_MIN_PX / w))) };
+  });
+  /** Printing in pixels means 96 dpi; the simple view prints at the mm size instead. */
+  const printOut = $derived(simple ? { ...app.settings.output, unit: 'mm' as const } : out);
   const size = $derived(svgs.length ? outputSize(svgs[0], out) : null);
   const tooLarge = $derived(!!size && out.format !== 'svg' && size.pxWidth * size.pxHeight > MAX_CANVAS_PIXELS);
 
@@ -53,7 +64,8 @@
   }
 
   function baseName(): string {
-    return pipe.status === 'ok' ? `qr-${pipe.result.symbols[0].spec.label}` : 'qr';
+    const fallback = pipe.status === 'ok' ? `qr-${pipe.result.symbols[0].spec.label}` : 'qr';
+    return qrFileName(app.kind, app.fields[app.kind], app.payload.text, fallback);
   }
 
   async function run(action: () => Promise<void>) {
@@ -78,7 +90,7 @@
       if (!confirmDangerous()) return;
       const list = await exportSvgs(true);
       const { printSvgs } = await import('../lib/export/print');
-      await printSvgs(list.map((r) => ({ svg: r.svg, svgAttr: outputSize(r, out).svgAttr })));
+      await printSvgs(list.map((r) => ({ svg: r.svg, svgAttr: outputSize(r, printOut).svgAttr })));
     });
 
   const downloadAll = () =>
@@ -278,6 +290,9 @@
   {/if}
 
   <div class="stack output">
+    {#if simple}
+      {#if size}<p class="muted">{t('output.simpleNote', { w: formatNumber(size.pxWidth), h: formatNumber(size.pxHeight) })}</p>{/if}
+    {:else}
     <h3>{t('section.output')}</h3>
     <div class="grid2">
       <div class="field">
@@ -337,9 +352,10 @@
       {#if tooLarge}<p class="msg error">{t('output.tooLarge')}</p>{/if}
     {/if}
     {#if out.unit === 'px'}<p class="muted">{t('output.printPx')}</p>{/if}
+    {/if}
 
-    <div class="row">
-      <button type="button" class="btn primary" disabled={!svgs.length || tooLarge} onclick={download}>{t('output.download')}</button>
+    <div class="row" class:big={simple}>
+      <button type="button" class="btn primary" disabled={!svgs.length || tooLarge} onclick={download}>{t(simple ? 'output.downloadPng' : 'output.download')}</button>
       {#if svgs.length > 1}
         <button type="button" class="btn" disabled={tooLarge} onclick={downloadAll}>{t(out.format === 'pdf' ? 'output.downloadAllPdf' : 'output.downloadAll')}</button>
         <button type="button" class="btn" onclick={downloadSheet}>{t('output.downloadSheet')}</button>
@@ -347,12 +363,15 @@
       <button type="button" class="btn" disabled={!svgs.length} onclick={print}>{t('output.print')}</button>
       <button type="button" class="btn" disabled={!svgs.length} onclick={copy}>{t('output.copy')}</button>
       {#if shareable}<button type="button" class="btn" disabled={!svgs.length || tooLarge} onclick={share}>{t('output.share')}</button>{/if}
-      <button type="button" class="btn" disabled={!svgs.length || !app.payload.text} onclick={copyData}>{t('output.copyText')}</button>
-      <button type="button" class="btn" disabled={!svgs.length} onclick={saveHistory}>{t('output.saveHistory')}</button>
+      {#if !simple}
+        <button type="button" class="btn" disabled={!svgs.length || !app.payload.text} onclick={copyData}>{t('output.copyText')}</button>
+        <button type="button" class="btn" disabled={!svgs.length} onclick={saveHistory}>{t('output.saveHistory')}</button>
+      {/if}
     </div>
     {#if notice}<p class="msg {noticeKind}" role="status">{notice}</p>{/if}
   </div>
 
+  {#if !simple}
   <div class="stack">
     <div class="row">
       <h3>{t('verify.title')}</h3>
@@ -374,11 +393,18 @@
       {/if}
     </div>
   </div>
+  {/if}
 </section>
 
 <style>
   p {
     margin: 0;
+  }
+  /* Simple view: large, easy targets for the main actions. */
+  .row.big :global(.btn) {
+    min-height: 48px;
+    padding-inline: 18px;
+    font-size: 15px;
   }
   .canvas {
     display: grid;

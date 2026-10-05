@@ -47,6 +47,8 @@ export type Theme = 'system' | 'light' | 'dark';
 export type Mode = 'qr' | 'barcode' | 'datamatrix';
 export const MODES: Mode[] = ['qr', 'barcode', 'datamatrix'];
 export type Locale = 'ja' | 'en';
+/** "simple": input, preview and the main actions only; "detailed": every option. */
+export type View = 'simple' | 'detailed';
 
 export interface Settings {
   symbol: SymbolSettings;
@@ -59,6 +61,7 @@ export interface Settings {
   mode: Mode;
   theme: Theme;
   locale: Locale;
+  view: View;
 }
 
 export const SETTINGS_KEY = 'qr-studio:settings';
@@ -143,5 +146,7 @@ export function loadSettings(stored: unknown): Settings {
     mode: MODES.includes(s.mode as Mode) ? (s.mode as Mode) : 'qr',
     theme,
     locale,
+    // New users start simple; people who already have settings keep the full screen they know.
+    view: s.view === 'simple' || s.view === 'detailed' ? s.view : Object.keys(s).length ? 'detailed' : 'simple',
   };
 }

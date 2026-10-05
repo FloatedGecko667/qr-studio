@@ -1,7 +1,17 @@
 import { expect, type Page } from '@playwright/test';
 
-/** Opens the app with a clean slate (settings, history and scan progress live in storage). */
-export async function openApp(page: Page, path = '/'): Promise<void> {
+/**
+ * Opens the app with a clean slate (settings, history and scan progress live in storage).
+ * New users start in the simple view; tests use the detailed one unless they ask for `simple`.
+ */
+export async function openApp(page: Page, path = '/', view: 'simple' | 'detailed' = 'detailed'): Promise<void> {
+  await page.addInitScript((v) => {
+    try {
+      if (!localStorage.getItem('qr-studio:settings')) localStorage.setItem('qr-studio:settings', JSON.stringify({ view: v }));
+    } catch {
+      // Storage blocked: the app falls back to its defaults.
+    }
+  }, view);
   await page.goto(path);
   await expect(page.getByRole('heading', { name: 'プレビュー' })).toBeVisible();
 }

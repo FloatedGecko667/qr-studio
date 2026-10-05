@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { app } from '../lib/app.svelte';
   import { BARCODE_LABELS, barsWidth, HAS_ADDON } from '../lib/barcode';
   import { codeSurface } from '../lib/ui/codeSurface';
   import { renderBarcodeSvg } from '../lib/barcode/render';
@@ -13,12 +14,24 @@
 
   let { code }: { code: BarcodeState } = $props();
 
-  const out = $derived(code.settings.output);
   const style = $derived(code.settings.style);
   const type = $derived(code.settings.type);
   const res = $derived(code.result);
   const svg = $derived(res.ok ? renderBarcodeSvg(res.symbol, style) : null);
   const kind = $derived(res.ok ? res.symbol.kind : 'linear');
+  const simple = $derived(app.settings.view === 'simple');
+  /** Simple view saves a PNG at least this wide, large enough to print. */
+  const SIMPLE_MIN_PX = 1000;
+  const out: BarcodeOutput = $derived.by(() => {
+    const o = code.settings.output;
+    if (!simple) return o;
+    const px = Math.ceil(SIMPLE_MIN_PX / (svg?.widthUnits ?? 1));
+    const limit = kind === 'matrix' ? BARCODE_LIMITS.matrixModulePx[1] : BARCODE_LIMITS.modulePx[1];
+    const field = kind === 'matrix' ? 'matrixModulePx' : 'modulePx';
+    return { ...o, unit: 'px', format: 'png', [field]: Math.min(limit, Math.max(o[field], px)) };
+  });
+  /** Printing in pixels means 96 dpi; the simple view prints at the mm size instead. */
+  const printOut = $derived(simple ? { ...code.settings.output, unit: 'mm' as const } : out);
   const mod = $derived(moduleSize(out, kind));
   const size = $derived(svg ? barcodeSize(svg, out, kind) : null);
   const tooLarge = $derived(!!size && out.format !== 'svg' && size.pxWidth * size.pxHeight > MAX_CANVAS_PIXELS);
@@ -72,7 +85,7 @@
       const r = await exportSvg();
       if (!r) return;
       const { printSvgs } = await import('../lib/export/print');
-      await printSvgs([{ svg: r.svg, svgAttr: barcodeSize(r, out, kind).svgAttr }]);
+      await printSvgs([{ svg: r.svg, svgAttr: barcodeSize(r, printOut, kind).svgAttr }]);
     });
 
   const shareable = canShareFiles();
@@ -209,6 +222,9 @@
   {/if}
 
   <div class="stack output">
+    {#if simple}
+      {#if size}<p class="muted">{t('output.simpleNote', { w: formatNumber(size.pxWidth), h: formatNumber(size.pxHeight) })}</p>{/if}
+    {:else}
     <h3>{t('section.output')}</h3>
     <div class="grid2">
       <div class="field">
@@ -287,18 +303,22 @@
       {#if tooLarge}<p class="msg error">{t('output.tooLarge')}</p>{/if}
     {/if}
     {#if out.unit === 'px'}<p class="muted">{t('output.printPx')}</p>{/if}
+    {/if}
 
-    <div class="row">
-      <button type="button" class="btn primary" disabled={!svg || tooLarge} onclick={download}>{t('output.download')}</button>
+    <div class="row" class:big={simple}>
+      <button type="button" class="btn primary" disabled={!svg || tooLarge} onclick={download}>{t(simple ? 'output.downloadPng' : 'output.download')}</button>
       <button type="button" class="btn" disabled={!svg} onclick={print}>{t('output.print')}</button>
       <button type="button" class="btn" disabled={!svg || tooLarge} onclick={copy}>{t('output.copy')}</button>
       {#if shareable}<button type="button" class="btn" disabled={!svg || tooLarge} onclick={share}>{t('output.share')}</button>{/if}
-      <button type="button" class="btn" disabled={!svg} onclick={copyData}>{t('output.copyText')}</button>
-      <button type="button" class="btn" disabled={!svg} onclick={saveHistory}>{t('output.saveHistory')}</button>
+      {#if !simple}
+        <button type="button" class="btn" disabled={!svg} onclick={copyData}>{t('output.copyText')}</button>
+        <button type="button" class="btn" disabled={!svg} onclick={saveHistory}>{t('output.saveHistory')}</button>
+      {/if}
     </div>
     {#if notice}<p class="msg {noticeKind}" role="status">{notice}</p>{/if}
   </div>
 
+  {#if !simple}
   <div class="stack">
     <div class="row">
       <h3>{t('verify.title')}</h3>
@@ -322,11 +342,18 @@
       {/if}
     </div>
   </div>
+  {/if}
 </section>
 
 <style>
   p {
     margin: 0;
+  }
+  /* Simple view: large, easy targets for the main actions. */
+  .row.big :global(.btn) {
+    min-height: 48px;
+    padding-inline: 18px;
+    font-size: 15px;
   }
   .canvas {
     display: grid;
