@@ -18,6 +18,8 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
+      # Vector PDF tests render pages with Ghostscript (skipped where it is missing).
+      - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ghostscript
       - run: npm run lint
       - run: npm run check
       - run: npm test

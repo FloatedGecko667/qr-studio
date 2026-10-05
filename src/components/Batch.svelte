@@ -3,7 +3,8 @@
   import { app } from '../lib/app.svelte';
   import { BATCH_LIMIT, decodeCsv, itemsFromCsv, itemsFromLines, type BatchItem } from '../lib/batch';
   import type { BatchRequest, BatchResponse } from '../lib/batch.worker';
-  import { exportBlob, extensionFor, renderStyle } from '../lib/compose';
+  import { exportBlob, extensionFor, PDF_PX_DPI, renderStyle, svgsToPdf, type PdfSource } from '../lib/compose';
+  import { outputSize } from '../lib/render/output';
   import { downloadBlob, zipFiles } from '../lib/export/download';
   import { formatNumber, t } from '../lib/i18n/index.svelte';
   import { fontDataUrl } from '../lib/render/font';
@@ -27,6 +28,9 @@
     mode = 'csv';
   }
 
+  /** With PDF output: one file with a page per row instead of a ZIP. */
+  let onePdf = $state(true);
+
   function cancel() {
     worker?.postMessage({ type: 'cancel' } satisfies BatchRequest);
     worker?.terminate();
@@ -47,6 +51,8 @@
     const font = needsFont && (app.settings.output.format !== 'svg' || style.embedFont) ? await fontDataUrl() : null;
     const output = $state.snapshot(app.settings.output);
     const files: { name: string; blob: Blob }[] = [];
+    const pdfPages: PdfSource[] = [];
+    const merge = onePdf && output.format === 'pdf';
     const w = new Worker(new URL('../lib/batch.worker.ts', import.meta.url), { type: 'module' });
     worker = w;
     // Rasterize sequentially on the main thread (canvas) while the worker keeps encoding.
@@ -57,8 +63,13 @@
         if (worker !== w) return;
         if (msg.type === 'item') {
           try {
-            const blob = await exportBlob(msg, output, style.bg);
-            files.push({ name: `${msg.filename}.${extensionFor(output)}`, blob });
+            if (merge) {
+              const size = outputSize(msg, output);
+              pdfPages.push({ svg: msg.svg, pxWidth: size.pxWidth, pxHeight: size.pxHeight, dpi: output.unit === 'mm' ? output.dpi : PDF_PX_DPI });
+            } else {
+              const blob = await exportBlob(msg, output, style.bg);
+              files.push({ name: `${msg.filename}.${extensionFor(output)}`, blob });
+            }
           } catch {
             failures.push(t('batch.failedRow', { row: items[msg.index].row, reason: t('output.tooLarge') }));
           }
@@ -70,7 +81,8 @@
           w.terminate();
           worker = null;
           if (files.length) downloadBlob(await zipFiles(files), `qr-batch-${files.length}.zip`);
-          result = t('batch.done', { ok: files.length, failed: failures.length });
+          if (pdfPages.length) downloadBlob(await svgsToPdf(pdfPages), `qr-batch-${pdfPages.length}.pdf`);
+          result = t('batch.done', { ok: files.length + pdfPages.length, failed: failures.length });
           running = false;
         }
       });
@@ -114,9 +126,16 @@
     {#if items.length > BATCH_LIMIT}<p class="msg error">{t('batch.tooMany', { max: formatNumber(BATCH_LIMIT) })}</p>{/if}
   {/if}
 
+  {#if app.settings.output.format === 'pdf'}
+    <label class="check">
+      <input type="checkbox" bind:checked={onePdf} />
+      {t('batch.onePdf')}
+    </label>
+  {/if}
+
   <div class="row">
     <button type="button" class="btn primary" disabled={running || items.length === 0 || items.length > BATCH_LIMIT} onclick={generate}>
-      {t('batch.generate')}
+      {t(onePdf && app.settings.output.format === 'pdf' ? 'batch.generatePdf' : 'batch.generate')}
     </button>
     {#if running}
       <button type="button" class="btn" onclick={cancel}>{t('batch.cancel')}</button>

@@ -31,6 +31,8 @@ test.describe('generate', () => {
     expect(pdf.startsWith('%PDF-1.4')).toBe(true);
     // 30 mm default = 85.0394 pt.
     expect(pdf).toMatch(/\/MediaBox \[0 0 8[45]\.\d+ 8[45]\.\d+\]/);
+    // Vector: the modules are paths, so a plain QR needs no embedded image.
+    expect(pdf).not.toContain('/Subtype /Image');
 
     await switchMode(page, 'バーコード');
     await card.getByLabel('形式').selectOption('pdf');
@@ -38,6 +40,8 @@ test.describe('generate', () => {
     await card.getByRole('button', { name: '保存', exact: true }).click();
     file = await download;
     expect(file.suggestedFilename()).toMatch(/\.pdf$/);
+    // Bars are vectors; the human-readable digits come as one transparent overlay image (+ its alpha mask).
+    expect((await readFile((await file.path())!)).toString('latin1').match(/\/Subtype \/Image/g)).toHaveLength(2);
   });
 
   test('QR code: fixed version that is too small offers suggestions', async ({ page }) => {

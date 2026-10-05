@@ -4,7 +4,7 @@
   import { barcodeSize } from '../lib/barcode/settings';
   import type { BarcodeState } from '../lib/barcode/state.svelte';
   import { BATCH_LIMIT, decodeCsv, itemsFromCsv, itemsFromLines, serialLines, type BatchItem, type SerialSpec } from '../lib/batch';
-  import { exportSized, extensionFor } from '../lib/compose';
+  import { exportSized, extensionFor, PDF_PX_DPI, svgsToPdf, type PdfSource } from '../lib/compose';
   import { downloadBlob, zipFiles } from '../lib/export/download';
   import { formatNumber, t } from '../lib/i18n/index.svelte';
   import { fontDataUrl } from '../lib/render/font';
@@ -39,6 +39,9 @@
     input = serialLines($state.snapshot(serial)).join('\n');
   }
 
+  /** With PDF output: one file with a page per row instead of a ZIP. */
+  let onePdf = $state(true);
+
   async function generate() {
     if (items.length === 0 || items.length > BATCH_LIMIT) return;
     running = true;
@@ -50,6 +53,8 @@
     const { type, options, style, output } = $state.snapshot(code.settings);
     const font = style.showText && style.font === 'jetbrains' ? await fontDataUrl() : null;
     const files: { name: string; blob: Blob }[] = [];
+    const pdfPages: PdfSource[] = [];
+    const merge = onePdf && output.format === 'pdf';
     for (const [i, item] of items.entries()) {
       if (cancelled) break;
       const r = encodeBarcode(type, item.content, options);
@@ -58,8 +63,13 @@
       } else {
         try {
           const svg = renderBarcodeSvg(r.symbol, style, font);
-          const blob = await exportSized(svg.svg, barcodeSize(svg, output, r.symbol.kind), output.format, output.unit === 'mm' ? output.dpi : undefined, output.quality, style.bg);
-          files.push({ name: `${item.filename}.${extensionFor(output)}`, blob });
+          const size = barcodeSize(svg, output, r.symbol.kind);
+          if (merge) {
+            pdfPages.push({ svg: svg.svg, pxWidth: size.pxWidth, pxHeight: size.pxHeight, dpi: output.unit === 'mm' ? output.dpi : PDF_PX_DPI });
+          } else {
+            const blob = await exportSized(svg.svg, size, output.format, output.unit === 'mm' ? output.dpi : undefined, output.quality, style.bg);
+            files.push({ name: `${item.filename}.${extensionFor(output)}`, blob });
+          }
         } catch (e) {
           failures.push(t('batch.failedRow', { row: item.row, reason: t(e instanceof RangeError ? 'output.tooLarge' : 'verify.error') }));
         }
@@ -72,7 +82,8 @@
       result = t('batch.cancelled');
     } else {
       if (files.length) downloadBlob(await zipFiles(files), `${prefix}-batch-${files.length}.zip`);
-      result = t('batch.done', { ok: files.length, failed: failures.length });
+      if (pdfPages.length) downloadBlob(await svgsToPdf(pdfPages), `${prefix}-batch-${pdfPages.length}.pdf`);
+      result = t('batch.done', { ok: files.length + pdfPages.length, failed: failures.length });
     }
     running = false;
   }
@@ -142,9 +153,16 @@
     {#if items.length > BATCH_LIMIT}<p class="msg error">{t('batch.tooMany', { max: formatNumber(BATCH_LIMIT) })}</p>{/if}
   {/if}
 
+  {#if code.settings.output.format === 'pdf'}
+    <label class="check">
+      <input type="checkbox" bind:checked={onePdf} />
+      {t('batch.onePdf')}
+    </label>
+  {/if}
+
   <div class="row">
     <button type="button" class="btn primary" disabled={running || items.length === 0 || items.length > BATCH_LIMIT} onclick={generate}>
-      {t('batch.generate')}
+      {t(onePdf && code.settings.output.format === 'pdf' ? 'batch.generatePdf' : 'batch.generate')}
     </button>
     {#if running}
       <button type="button" class="btn" onclick={() => (cancelled = true)}>{t('batch.cancel')}</button>

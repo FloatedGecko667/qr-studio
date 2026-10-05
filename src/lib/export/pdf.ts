@@ -1,4 +1,5 @@
 import { zlibSync } from 'fflate';
+import type { Shape } from './vector';
 
 export interface PdfImage {
   width: number;
@@ -37,12 +38,53 @@ function num(n: number): string {
   return String(Math.round(n * 10_000) / 10_000);
 }
 
+/** One page: a full-page raster image, or vector shapes with an optional raster overlay on top. */
+export interface PdfPage {
+  widthPt: number;
+  heightPt: number;
+  /** Drawn first, stretched over the whole page. */
+  image?: PdfImage;
+  /** Shapes in SVG user units (y down), scaled to the page. */
+  vector?: { width: number; height: number; shapes: readonly Shape[] };
+  /** Drawn last over the whole page (text, logos), with transparency. */
+  overlay?: PdfImage;
+}
+
 /**
  * Builds a PDF with one page per image, each page exactly the image's printed size. Images are
  * stored losslessly (Flate) with an alpha soft mask when any pixel is transparent, and drawn
  * without interpolation so module edges stay sharp.
  */
 export function imagesToPdf(pages: readonly { image: PdfImage; widthPt: number; heightPt: number }[]): Uint8Array {
+  return writePdf(pages);
+}
+
+/** PDF path operators for shapes drawn in SVG coordinates (the caller sets up the y flip). */
+export function vectorContent(shapes: readonly Shape[], alphaName: (a: number) => string): string {
+  const ops: string[] = [];
+  for (const sh of shapes) {
+    const fill = sh.fill && sh.fill.a > 0 ? sh.fill : null;
+    const stroke = sh.stroke && sh.stroke.color.a > 0 ? sh.stroke : null;
+    if (!fill && !stroke) continue;
+    // Each shape in its own graphics state so its colour and alpha do not leak to the next one.
+    const state = ['q'];
+    if (fill) state.push(`${num(fill.r)} ${num(fill.g)} ${num(fill.b)} rg`);
+    if (stroke) state.push(`${num(stroke.color.r)} ${num(stroke.color.g)} ${num(stroke.color.b)} RG ${num(stroke.width)} w`);
+    const alpha = Math.min(fill?.a ?? 1, stroke?.color.a ?? 1);
+    if (alpha < 1) state.push(`/${alphaName(alpha)} gs`);
+    ops.push(state.join(' '));
+    for (const seg of sh.segments) {
+      if (seg.op === 'M') ops.push(`${num(seg.x)} ${num(seg.y)} m`);
+      else if (seg.op === 'L') ops.push(`${num(seg.x)} ${num(seg.y)} l`);
+      else if (seg.op === 'C') ops.push(`${num(seg.x1)} ${num(seg.y1)} ${num(seg.x2)} ${num(seg.y2)} ${num(seg.x)} ${num(seg.y)} c`);
+      else ops.push('h');
+    }
+    ops.push(fill && stroke ? (sh.evenOdd ? 'B*' : 'B') : fill ? (sh.evenOdd ? 'f*' : 'f') : 'S', 'Q');
+  }
+  return ops.join('\n');
+}
+
+export function writePdf(pages: readonly PdfPage[]): Uint8Array {
   const chunks: Uint8Array[] = [];
   const offsets: number[] = [];
   let length = 0;
@@ -51,17 +93,6 @@ export function imagesToPdf(pages: readonly { image: PdfImage; widthPt: number; 
     length += b.length;
   };
   const text = (s: string) => push(encoder.encode(s));
-
-  // Object numbers: 1 catalog, 2 page tree, then per page: page, contents, image, [mask].
-  const pageIds: number[] = [];
-  let next = 3;
-  const layout = pages.map((p) => {
-    const { rgb, alpha } = splitChannels(p.image);
-    const ids = { page: next, contents: next + 1, image: next + 2, mask: alpha ? next + 3 : 0 };
-    next += alpha ? 4 : 3;
-    pageIds.push(ids.page);
-    return { ...p, rgb, alpha, ids };
-  });
 
   const object = (id: number, body: string, stream?: Uint8Array) => {
     offsets[id] = length;
@@ -74,37 +105,75 @@ export function imagesToPdf(pages: readonly { image: PdfImage; widthPt: number; 
     text('\nendobj\n');
   };
 
+  // Object numbers: 1 catalog, 2 page tree, then per page: page, contents, then its images.
+  let next = 3;
+  const alloc = () => next++;
+  const pageIds = pages.map(() => alloc());
+  const contentIds = pages.map(() => alloc());
+
   // Header with a binary comment so transfer tools treat the file as binary.
   text('%PDF-1.4\n');
   push(new Uint8Array([0x25, 0xe2, 0xe3, 0xcf, 0xd3, 0x0a]));
-
   object(1, '<< /Type /Catalog /Pages 2 0 R >>');
   object(2, `<< /Type /Pages /Kids [${pageIds.map((id) => `${id} 0 R`).join(' ')}] /Count ${pageIds.length} >>`);
-  for (const p of layout) {
-    const w = num(p.widthPt);
-    const h = num(p.heightPt);
+
+  /** Writes an image XObject (and its soft mask) and returns its object number. */
+  const imageObject = (img: PdfImage): number => {
+    const { rgb, alpha } = splitChannels(img);
+    const id = alloc();
+    const maskId = alpha ? alloc() : 0;
+    const pixels = zlibSync(rgb, { level: 9 });
+    const smask = alpha ? ` /SMask ${maskId} 0 R` : '';
     object(
-      p.ids.page,
-      `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${w} ${h}] /Resources << /XObject << /Im0 ${p.ids.image} 0 R >> >> /Contents ${p.ids.contents} 0 R >>`,
-    );
-    const content = encoder.encode(`q ${w} 0 0 ${h} 0 0 cm /Im0 Do Q`);
-    object(p.ids.contents, `<< /Length ${content.length} >>`, content);
-    const pixels = zlibSync(p.rgb, { level: 9 });
-    const smask = p.alpha ? ` /SMask ${p.ids.mask} 0 R` : '';
-    object(
-      p.ids.image,
-      `<< /Type /XObject /Subtype /Image /Width ${p.image.width} /Height ${p.image.height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Interpolate false /Filter /FlateDecode${smask} /Length ${pixels.length} >>`,
+      id,
+      `<< /Type /XObject /Subtype /Image /Width ${img.width} /Height ${img.height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Interpolate false /Filter /FlateDecode${smask} /Length ${pixels.length} >>`,
       pixels,
     );
-    if (p.alpha) {
-      const mask = zlibSync(p.alpha, { level: 9 });
+    if (alpha) {
+      const mask = zlibSync(alpha, { level: 9 });
       object(
-        p.ids.mask,
-        `<< /Type /XObject /Subtype /Image /Width ${p.image.width} /Height ${p.image.height} /ColorSpace /DeviceGray /BitsPerComponent 8 /Interpolate false /Filter /FlateDecode /Length ${mask.length} >>`,
+        maskId,
+        `<< /Type /XObject /Subtype /Image /Width ${img.width} /Height ${img.height} /ColorSpace /DeviceGray /BitsPerComponent 8 /Interpolate false /Filter /FlateDecode /Length ${mask.length} >>`,
         mask,
       );
     }
-  }
+    return id;
+  };
+
+  pages.forEach((p, i) => {
+    const w = num(p.widthPt);
+    const h = num(p.heightPt);
+    const xobjects: string[] = [];
+    const ops: string[] = [];
+    if (p.image) {
+      xobjects.push(`/Im0 ${imageObject(p.image)} 0 R`);
+      ops.push(`q ${w} 0 0 ${h} 0 0 cm /Im0 Do Q`);
+    }
+    const alphas = new Map<string, number>();
+    if (p.vector && p.vector.width > 0 && p.vector.height > 0) {
+      const sx = p.widthPt / p.vector.width;
+      const sy = p.heightPt / p.vector.height;
+      // SVG y grows downwards: flip once, then draw in SVG units.
+      ops.push(`q ${num(sx)} 0 0 ${num(-sy)} 0 ${h} cm`);
+      ops.push(
+        vectorContent(p.vector.shapes, (a) => {
+          const key = num(a);
+          if (!alphas.has(key)) alphas.set(key, alphas.size);
+          return `GA${alphas.get(key)}`;
+        }),
+      );
+      ops.push('Q');
+    }
+    if (p.overlay) {
+      xobjects.push(`/Im1 ${imageObject(p.overlay)} 0 R`);
+      ops.push(`q ${w} 0 0 ${h} 0 0 cm /Im1 Do Q`);
+    }
+    const gs = [...alphas].map(([a, n]) => `/GA${n} << /Type /ExtGState /ca ${a} /CA ${a} >>`).join(' ');
+    const resources = `<< ${xobjects.length ? `/XObject << ${xobjects.join(' ')} >>` : ''}${gs ? ` /ExtGState << ${gs} >>` : ''} >>`;
+    object(pageIds[i], `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${w} ${h}] /Resources ${resources} /Contents ${contentIds[i]} 0 R >>`);
+    const content = zlibSync(encoder.encode(ops.join('\n')), { level: 9 });
+    object(contentIds[i], `<< /Length ${content.length} /Filter /FlateDecode >>`, content);
+  });
 
   const xref = length;
   const count = next;

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { codeSurface } from '../lib/ui/codeSurface';
   import { app } from '../lib/app.svelte';
-  import { exportBlob, extensionFor, renderStyle, symbolSvgs } from '../lib/compose';
+  import { exportBlob, exportPdf, extensionFor, renderStyle, symbolSvgs } from '../lib/compose';
   import { canShareFiles, copyImage, copyText, downloadBlob, shareFiles, zipFiles } from '../lib/export/download';
   import { formatNumber, t } from '../lib/i18n/index.svelte';
   import { fontDataUrl } from '../lib/render/font';
@@ -76,6 +76,11 @@
     run(async () => {
       if (!confirmDangerous()) return;
       const list = await exportSvgs(out.format !== 'svg');
+      // PDF: one file, one symbol per page, instead of a ZIP of single-page PDFs.
+      if (out.format === 'pdf') {
+        downloadBlob(await exportPdf(list, out), `${baseName()}-x${list.length}.pdf`);
+        return;
+      }
       const files = [];
       for (const [i, r] of list.entries()) {
         files.push({ name: `${baseName()}-${i + 1}of${list.length}.${extensionFor(out)}`, blob: await exportBlob(r, out, style.bg) });
@@ -326,7 +331,7 @@
     <div class="row">
       <button type="button" class="btn primary" disabled={!svgs.length || tooLarge} onclick={download}>{t('output.download')}</button>
       {#if svgs.length > 1}
-        <button type="button" class="btn" disabled={tooLarge} onclick={downloadAll}>{t('output.downloadAll')}</button>
+        <button type="button" class="btn" disabled={tooLarge} onclick={downloadAll}>{t(out.format === 'pdf' ? 'output.downloadAllPdf' : 'output.downloadAll')}</button>
         <button type="button" class="btn" onclick={downloadSheet}>{t('output.downloadSheet')}</button>
       {/if}
       <button type="button" class="btn" disabled={!svgs.length} onclick={copy}>{t('output.copy')}</button>

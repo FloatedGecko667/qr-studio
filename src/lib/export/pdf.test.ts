@@ -57,7 +57,7 @@ describe('imagesToPdf', () => {
       { image: image(1, 1, 0), widthPt: 20, heightPt: 20 },
     ]);
     const s = latin1(pdf);
-    expect(s).toContain('/Kids [3 0 R 6 0 R] /Count 2');
+    expect(s).toContain('/Kids [3 0 R 4 0 R] /Count 2');
     expect(s).toContain('/MediaBox [0 0 20 20]');
   });
 });
