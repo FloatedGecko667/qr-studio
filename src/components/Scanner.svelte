@@ -123,6 +123,70 @@
     timer = setTimeout(tick, INTERVAL_MS);
   }
 
+  /** Camera controls offered by the current track (torch and zoom are mostly Android Chrome). */
+  interface CameraCaps {
+    torch: boolean;
+    zoom: { min: number; max: number; step: number } | null;
+  }
+  type TrackCaps = MediaTrackCapabilities & { torch?: boolean; zoom?: { min: number; max: number; step?: number } };
+  type TrackSettings = MediaTrackSettings & { torch?: boolean; zoom?: number };
+
+  let caps: CameraCaps = $state({ torch: false, zoom: null });
+  let torchOn = $state(false);
+  let zoom = $state(1);
+  let cameras: { id: string; label: string }[] = $state([]);
+  let cameraId = $state('');
+
+  function readCaps(track: MediaStreamTrack) {
+    const c = (track.getCapabilities?.() ?? {}) as TrackCaps;
+    const z = c.zoom && Number.isFinite(c.zoom.min) && Number.isFinite(c.zoom.max) && c.zoom.max > c.zoom.min ? c.zoom : null;
+    caps = { torch: c.torch === true, zoom: z ? { min: z.min, max: z.max, step: z.step || 0.1 } : null };
+    const settings = (track.getSettings?.() ?? {}) as TrackSettings;
+    torchOn = settings.torch === true;
+    zoom = typeof settings.zoom === 'number' ? settings.zoom : (z?.min ?? 1);
+    cameraId = settings.deviceId ?? '';
+  }
+
+  async function listCameras() {
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      cameras = devices
+        .filter((d) => d.kind === 'videoinput' && d.deviceId)
+        .map((d, i) => ({ id: d.deviceId, label: d.label || t('scan.cameraN', { n: i + 1 }) }));
+    } catch {
+      cameras = [];
+    }
+  }
+
+  /** Opens the chosen camera, or the rear one; a stale saved choice falls back to the default. */
+  async function openStream(): Promise<MediaStream> {
+    const saved = scanLog.prefs.deviceId;
+    if (saved) {
+      try {
+        return await navigator.mediaDevices.getUserMedia({ video: { deviceId: { exact: saved } }, audio: false });
+      } catch (e) {
+        if ((e as Error).name === 'NotAllowedError') throw e;
+        scanLog.setPrefs({ deviceId: '' });
+      }
+    }
+    return navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
+  }
+
+  function attach(next: MediaStream) {
+    stream = next;
+    // The OS or another app can take the camera away; the parts read so far are already saved.
+    for (const track of next.getVideoTracks()) {
+      track.addEventListener('ended', () => {
+        if (stream !== next) return;
+        stop();
+        notice = t(partials.length ? 'scan.interruptedSaved' : 'scan.interrupted');
+      });
+    }
+    const track = next.getVideoTracks()[0];
+    if (track) readCaps(track);
+    video!.srcObject = next;
+  }
+
   async function start() {
     scanLog.unlockAudio();
     error = '';
@@ -133,23 +197,53 @@
       error = t('scan.noCamera');
       return;
     }
+    let next: MediaStream;
     try {
-      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
+      next = await openStream();
     } catch {
       error = t('scan.permission');
       return;
     }
-    // The OS or another app can take the camera away; the parts read so far are already saved.
-    for (const track of stream.getVideoTracks()) {
-      track.addEventListener('ended', () => {
-        if (!stream) return;
-        stop();
-        notice = t(partials.length ? 'scan.interruptedSaved' : 'scan.interrupted');
-      });
-    }
-    video!.srcObject = stream;
+    attach(next);
+    // Device labels are only available once permission has been granted.
+    void listCameras();
     await video!.play().catch(() => undefined);
     timer = setTimeout(tick, INTERVAL_MS);
+  }
+
+  async function switchCamera(id: string) {
+    if (!stream || id === cameraId) return;
+    scanLog.setPrefs({ deviceId: id });
+    for (const track of stream.getTracks()) track.stop();
+    try {
+      attach(await openStream());
+      await video!.play().catch(() => undefined);
+    } catch {
+      stop();
+      error = t('scan.permission');
+    }
+  }
+
+  async function setTorch(on: boolean) {
+    const track = stream?.getVideoTracks()[0];
+    if (!track) return;
+    try {
+      await track.applyConstraints({ advanced: [{ torch: on } as MediaTrackConstraintSet] });
+      torchOn = on;
+    } catch {
+      notice = t('scan.torchFailed');
+    }
+  }
+
+  async function setZoom(value: number) {
+    const track = stream?.getVideoTracks()[0];
+    zoom = value;
+    if (!track) return;
+    try {
+      await track.applyConstraints({ advanced: [{ zoom: value } as MediaTrackConstraintSet] });
+    } catch {
+      // The slider stays where it is; the camera keeps its last zoom.
+    }
   }
 
   function stop() {
@@ -157,6 +251,8 @@
     timer = null;
     for (const track of stream?.getTracks() ?? []) track.stop();
     stream = null;
+    torchOn = false;
+    caps = { torch: false, zoom: null };
     if (video) video.srcObject = null;
   }
 
@@ -309,6 +405,37 @@
   </div>
   {#if scanLog.prefs.continuous}<p class="muted">{t('scanLog.continuousHint')}</p>{/if}
 
+  {#if stream && (caps.torch || caps.zoom || cameras.length > 1)}
+    <div class="row camera-controls">
+      {#if cameras.length > 1}
+        <label class="field inline">
+          <span>{t('scan.cameraSelect')}</span>
+          <select value={cameraId} onchange={(e) => switchCamera(e.currentTarget.value)}>
+            {#each cameras as c (c.id)}<option value={c.id}>{c.label}</option>{/each}
+          </select>
+        </label>
+      {/if}
+      {#if caps.torch}
+        <button type="button" class="btn small" aria-pressed={torchOn} onclick={() => setTorch(!torchOn)}>
+          {torchOn ? t('scan.torchOff') : t('scan.torchOn')}
+        </button>
+      {/if}
+      {#if caps.zoom}
+        <label class="field inline zoom">
+          <span>{t('scan.zoom')}</span>
+          <input
+            type="range"
+            min={caps.zoom.min}
+            max={caps.zoom.max}
+            step={caps.zoom.step}
+            value={zoom}
+            oninput={(e) => setZoom(Number(e.currentTarget.value))} />
+          <output>{zoom.toFixed(1)}×</output>
+        </label>
+      {/if}
+    </div>
+  {/if}
+
   <!-- svelte-ignore a11y_media_has_caption -->
   <video bind:this={video} class:hidden={!stream} muted playsinline aria-label={t('scan.camera')}></video>
 
@@ -416,6 +543,17 @@
   }
   video.hidden {
     display: none;
+  }
+  .camera-controls {
+    align-items: end;
+  }
+  .inline {
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+  }
+  .zoom input {
+    width: 140px;
   }
   .result {
     border: 1px solid var(--border);

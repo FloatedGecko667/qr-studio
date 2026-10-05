@@ -13,6 +13,8 @@ export interface ScanPrefs {
   mode: ScanLogMode;
   /** Beep on each new read (vibration is always used where available). */
   beep: boolean;
+  /** Camera chosen by the user ('' = the rear camera by default). */
+  deviceId: string;
 }
 
 function loadPrefs(): ScanPrefs {
@@ -21,6 +23,7 @@ function loadPrefs(): ScanPrefs {
     continuous: p.continuous === true,
     mode: p.mode === 'count' ? 'count' : 'each',
     beep: p.beep === true,
+    deviceId: typeof p.deviceId === 'string' && p.deviceId.length <= 512 ? p.deviceId : '',
   };
 }
 
