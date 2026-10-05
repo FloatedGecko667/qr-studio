@@ -32,3 +32,14 @@ test('the automatic check flags a code that cannot be read', async ({ page }) =>
   await expect(preview(page).getByText(/読み取れませんでした。セルの形/)).toBeVisible({ timeout: 20_000 });
   await expect(page.getByText(/コントラスト/).first()).toBeVisible();
 });
+
+test('colours that differ only in hue get their own warning', async ({ page }) => {
+  await openApp(page);
+  await page.getByLabel('前景色').fill('#d00000');
+  await page.getByLabel('背景色').fill('#00a000');
+  await expect(page.getByText(/色合いは違っても明るさが近い組み合わせです/)).toBeVisible();
+  await expect(page.getByText('コントラストが不足しています。読み取れない可能性があります')).toHaveCount(0);
+  // Darkening the foreground clears it.
+  await page.getByLabel('前景色').fill('#200000');
+  await expect(page.getByText(/色合いは違っても/)).toHaveCount(0);
+});

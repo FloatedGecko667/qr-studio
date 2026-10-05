@@ -246,6 +246,7 @@ export const fr: Record<keyof typeof ja, string> = {
   'style.bg': 'Arrière-plan',
   'style.transparent': 'Arrière-plan transparent',
   'style.lowContrast': 'Contraste faible. La lecture peut échouer',
+  'style.hueOnly': 'Ces couleurs diffèrent par la teinte mais ont une luminosité proche. Les lecteurs ne voient que la luminosité, et les personnes daltoniennes peuvent ne pas les distinguer : rendez l’une nettement plus foncée (ou plus claire)',
   'style.inverted': 'Les codes clairs sur fond sombre (inversés) ne sont pas lus par certains lecteurs',
   'style.overlay': 'Centre',
   'style.overlayNone': 'Aucun',

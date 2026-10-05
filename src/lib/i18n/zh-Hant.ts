@@ -234,6 +234,7 @@ export const zhHant: Record<keyof typeof ja, string> = {
   'style.bg': '背景色',
   'style.transparent': '透明背景',
   'style.lowContrast': '對比度低，可能無法掃描',
+  'style.hueOnly': '這兩種顏色色相不同但亮度相近。掃描器只看明暗差，色覺障礙者也難以區分，請把其中一種調得更暗（或更亮）',
   'style.inverted': '深底淺碼（反白）不被部分掃描器支援',
   'style.overlay': '中央',
   'style.overlayNone': '無',

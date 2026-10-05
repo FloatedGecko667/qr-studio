@@ -242,6 +242,7 @@ export const de: Record<keyof typeof ja, string> = {
   'style.bg': 'Hintergrund',
   'style.transparent': 'Transparenter Hintergrund',
   'style.lowContrast': 'Geringer Kontrast. Das Scannen kann fehlschlagen',
+  'style.hueOnly': 'Diese Farben unterscheiden sich im Farbton, sind aber ähnlich hell. Scanner lesen nur die Helligkeit, und Menschen mit Farbsehschwäche können sie eventuell nicht unterscheiden: Machen Sie eine deutlich dunkler (oder heller)',
   'style.inverted': 'Helle Codes auf dunklem Grund (invertiert) werden von manchen Scannern nicht unterstützt',
   'style.overlay': 'Mitte',
   'style.overlayNone': 'Keine',

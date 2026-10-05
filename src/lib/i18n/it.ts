@@ -241,6 +241,7 @@ export const it: Record<keyof typeof ja, string> = {
   'style.bg': 'Sfondo',
   'style.transparent': 'Sfondo trasparente',
   'style.lowContrast': 'Contrasto basso. La scansione potrebbe non riuscire',
+  'style.hueOnly': 'Questi colori differiscono per tonalità ma hanno luminosità simile. I lettori vedono solo la luminosità e chi ha un deficit della visione dei colori potrebbe non distinguerli: rendine uno molto più scuro (o più chiaro)',
   'style.inverted': 'I codici chiari su fondo scuro (invertiti) non sono supportati da alcuni lettori',
   'style.overlay': 'Centro',
   'style.overlayNone': 'Nessuno',

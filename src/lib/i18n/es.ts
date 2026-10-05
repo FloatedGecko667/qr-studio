@@ -240,6 +240,7 @@ export const es: Record<keyof typeof ja, string> = {
   'style.bg': 'Fondo',
   'style.transparent': 'Fondo transparente',
   'style.lowContrast': 'Contraste bajo. Puede fallar la lectura',
+  'style.hueOnly': 'Estos colores difieren en el tono pero tienen un brillo parecido. Los lectores solo ven el brillo y las personas con daltonismo pueden no distinguirlos: haz uno mucho más oscuro (o más claro)',
   'style.inverted': 'Algunos lectores no admiten códigos claros sobre fondo oscuro (invertidos)',
   'style.overlay': 'Centro',
   'style.overlayNone': 'Ninguno',

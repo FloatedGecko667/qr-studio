@@ -25,7 +25,25 @@ export function contrastRatio(a: string, b: string): number {
   return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
 }
 
-export type ColorIssue = 'lowContrast' | 'inverted';
+/**
+ * Perceived colour difference ("redmean" weighted RGB distance, 0 to about 765). Large values with a
+ * low contrast ratio mean the colours differ in hue but not in brightness.
+ */
+export function colorDistance([r1, g1, b1]: [number, number, number], [r2, g2, b2]: [number, number, number]): number {
+  const rm = (r1 + r2) / 2;
+  const [dr, dg, db] = [r1 - r2, g1 - g2, b1 - b2];
+  return Math.sqrt((2 + rm / 256) * dr * dr + 4 * dg * dg + (2 + (255 - rm) / 256) * db * db);
+}
+
+/** Above this distance two colours look clearly different in hue even when equally bright. */
+const HUE_DISTANCE = 150;
+
+/**
+ * lowContrast: too little brightness difference. hueOnly: the same, but the colours differ in hue
+ * (red on green, for example), which people may expect to work: readers see only brightness, and
+ * people with colour-vision deficiencies may not tell the colours apart either.
+ */
+export type ColorIssue = 'lowContrast' | 'hueOnly' | 'inverted';
 
 /**
  * Readers expect dark modules on a light background with clear contrast. With a gradient every
@@ -38,7 +56,7 @@ export function colorIssues(fg: string | readonly string[], bg: string, transpar
   for (const c of typeof fg === 'string' ? [fg] : fg) {
     const f = parseHex(c);
     if (!f || !b) continue;
-    if (contrastRatio(c, back) < 4) issues.add('lowContrast');
+    if (contrastRatio(c, back) < 4) issues.add(colorDistance(f, b) > HUE_DISTANCE ? 'hueOnly' : 'lowContrast');
     if (luminance(f) > luminance(b)) issues.add('inverted');
   }
   return [...issues];

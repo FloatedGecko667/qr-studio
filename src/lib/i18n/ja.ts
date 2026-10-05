@@ -232,6 +232,7 @@ export const ja = {
   'style.bg': '背景色',
   'style.transparent': '背景を透過',
   'style.lowContrast': 'コントラストが不足しています。読み取れない可能性があります',
+  'style.hueOnly': '色合いは違っても明るさが近い組み合わせです。読み取り機は明るさの差だけで読み、色の見分けにくい人にも区別しにくいため、片方をもっと暗く（または明るく）してください',
   'style.inverted': '前景が背景より明るい（反転）と、読めない読取アプリがあります',
   'style.overlay': '中央',
   'style.overlayNone': 'なし',

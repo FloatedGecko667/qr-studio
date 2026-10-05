@@ -234,6 +234,7 @@ export const en: Record<keyof typeof ja, string> = {
   'style.bg': 'Background',
   'style.transparent': 'Transparent background',
   'style.lowContrast': 'Low contrast. Scanning may fail',
+  'style.hueOnly': 'These colours differ in hue but are similarly bright. Scanners read only brightness, and people with colour-vision deficiencies may not tell them apart: make one much darker (or lighter)',
   'style.inverted': 'Light-on-dark (inverted) codes are not supported by some scanners',
   'style.overlay': 'Center',
   'style.overlayNone': 'None',
