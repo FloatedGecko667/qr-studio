@@ -106,7 +106,7 @@ export function renderSvg(grid: SymbolGrid, s: RenderStyle, unitsAttr?: { width:
   const out: string[] = [];
   const size = unitsAttr ? ` width="${unitsAttr.width}" height="${unitsAttr.height}"` : '';
   out.push(
-    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${widthUnits} ${heightUnits}"${size} shape-rendering="crispEdges">`,
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${widthUnits} ${heightUnits}"${size} shape-rendering="crispEdges" style="color-scheme:only light">`,
   );
   if (s.fontDataUrl && (hasLabel || s.centerText)) {
     out.push(`<style>@font-face{font-family:${font};src:url(${s.fontDataUrl}) format("woff2");}</style>`);

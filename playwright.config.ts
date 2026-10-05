@@ -17,8 +17,20 @@ export default defineConfig({
     trace: 'retain-on-failure',
   },
   projects: [
-    { name: 'desktop', use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 800 } } },
-    { name: 'mobile', use: { ...devices['Pixel 7'] } },
+    { name: 'desktop', testIgnore: /force-dark/, use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 800 } } },
+    { name: 'mobile', testIgnore: /force-dark/, use: { ...devices['Pixel 7'] } },
+    // Chrome's "Auto Dark Mode for Web Contents" only runs in the full Chromium build, not the headless shell.
+    {
+      name: 'force-dark',
+      testMatch: /force-dark/,
+      use: {
+        // Desktop at DPR 1: there the heuristic darkens small inline SVG shapes (the test's control).
+        ...devices['Desktop Chrome'],
+        viewport: { width: 1280, height: 800 },
+        channel: 'chromium',
+        launchOptions: { args: ['--enable-features=WebContentsForceDark'] },
+      },
+    },
   ],
   webServer: {
     command: `npx vite preview --port ${PORT} --strictPort`,

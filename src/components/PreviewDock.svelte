@@ -1,5 +1,6 @@
 <script lang="ts">
   import { t } from '../lib/i18n/index.svelte';
+  import { codeSurface } from '../lib/ui/codeSurface';
 
   /** The preview card to mirror. Its `.symbol` (first one) and `.status` are copied into the dock. */
   let { anchor }: { anchor: HTMLElement | undefined } = $props();
@@ -42,7 +43,10 @@
     const copy = () => {
       const symbols = el.querySelectorAll('.symbol');
       count = symbols.length;
-      thumb = symbols[0]?.innerHTML ?? '';
+      const svg = symbols[0]?.querySelector('svg')?.cloneNode(true) as SVGSVGElement | undefined;
+      // The preview hides its SVG under the painted canvas; the copy must not inherit that.
+      svg?.style.removeProperty('visibility');
+      thumb = svg?.outerHTML ?? '';
       status = (el.querySelector('.status, [role="alert"]')?.textContent ?? '').trim();
     };
     copy();
@@ -58,7 +62,7 @@
 
 {#if narrow && hidden}
   <button type="button" class="dock" onclick={reveal} aria-label={t('dock.show')}>
-    <span class="thumb" aria-hidden="true">
+    <span class="thumb code-surface" use:codeSurface aria-hidden="true">
       {#if thumb}{@html thumb}{/if}
     </span>
     <span class="text">

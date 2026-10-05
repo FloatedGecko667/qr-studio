@@ -320,7 +320,7 @@
         {#if result.compressed}<span class="badge">{t('scan.inflated')}</span>{/if}
       </div>
       {#if image && imageUrl}
-        <img class="scanned" src={imageUrl} alt={t('scan.imageAlt')} />
+        <img class="scanned code-surface" src={imageUrl} alt={t('scan.imageAlt')} />
         <p class="muted">{t('scan.image', { mime: image.mime, encoding: image.encoding, n: image.bytes.length })}</p>
       {:else}
         <pre>{result.text}</pre>

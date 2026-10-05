@@ -67,7 +67,7 @@ export function renderBarcodeSvg(sym: BarcodeSymbol, s: BarcodeStyle, fontDataUr
 
 function openSvg(widthUnits: number, heightUnits: number, s: BarcodeStyle, fontDataUrl: string | null): string[] {
   // preserveAspectRatio="none": a rounded raster height must never shift the bars sideways.
-  const out = [`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${widthUnits} ${heightUnits}" preserveAspectRatio="none">`];
+  const out = [`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${widthUnits} ${heightUnits}" preserveAspectRatio="none" style="color-scheme:only light">`];
   if (s.showText && s.font === 'jetbrains' && fontDataUrl) {
     out.push(`<style>@font-face{font-family:'${FONT_FAMILY}';src:url(${fontDataUrl}) format("woff2");}</style>`);
   }

@@ -326,3 +326,18 @@ a.btn {
     animation: none !important;
   }
 }
+
+/*
+ * Rendered codes keep their light colours under forced dark modes and high contrast.
+ * The rest of the page may be re-coloured by the browser. Chromium's auto dark mode ignores
+ * color-scheme below the root, so codeSurface (src/lib/ui/codeSurface.ts) also paints the SVG to a canvas.
+ */
+.code-surface {
+  position: relative;
+  color-scheme: only light;
+  forced-color-adjust: none;
+}
+.code-surface > .code-surface-paint {
+  position: absolute;
+  pointer-events: none;
+}
