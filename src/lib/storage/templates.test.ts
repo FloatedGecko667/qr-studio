@@ -12,8 +12,9 @@ describe('templateFields', () => {
 
   it('keeps only known fields with the right types', () => {
     const out = templateFields('url', { url: 'https://example.org/a', extra: 'x', url2: 1 } as never, false);
-    expect(out).toEqual({ url: 'https://example.org/a' });
+    // Fields added later (UTM) are filled with their defaults, so older templates still load.
+    expect(out).toEqual({ ...FORMS.url.defaults, url: 'https://example.org/a' });
     // A wrong type falls back to the form default.
-    expect(templateFields('url', { url: 42 } as never, false)).toEqual({ url: FORMS.url.defaults.url });
+    expect(templateFields('url', { url: 42 } as never, false)).toEqual(FORMS.url.defaults);
   });
 });

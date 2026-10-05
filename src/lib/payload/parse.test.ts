@@ -134,3 +134,9 @@ describe('helpers', () => {
     );
   });
 });
+
+describe('WPA3', () => {
+  it('reads T:SAE as WPA3-only', () => {
+    expect(parseScanned('WIFI:T:SAE;S:Home;P:pw;;')).toMatchObject({ kind: 'wifi', auth: 'SAE', ssid: 'Home' });
+  });
+});

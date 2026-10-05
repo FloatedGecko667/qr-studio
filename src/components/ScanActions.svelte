@@ -74,7 +74,7 @@
     <dl>
       {#if scanned.kind === 'wifi'}
         {@render item('ssid', t('field.ssid'), scanned.ssid)}
-        {@render item('auth', t('field.auth'), scanned.auth === 'nopass' ? t('scanAction.noPassword') : scanned.auth)}
+        {@render item('auth', t('field.auth'), scanned.auth === 'nopass' ? t('scanAction.noPassword') : scanned.auth === 'SAE' ? 'WPA3 (SAE)' : scanned.auth)}
         {@render item('password', t('field.password'), scanned.password)}
         {#if scanned.hidden}{@render item('hidden', t('field.hidden'), t('scanAction.yes'))}{/if}
       {:else if scanned.kind === 'contact'}

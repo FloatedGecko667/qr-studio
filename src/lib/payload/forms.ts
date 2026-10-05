@@ -15,6 +15,9 @@ import {
   type ContactFields,
   type Payload,
   type PayloadKind,
+  type EventTimeZone,
+  type UtmKey,
+  UTM_KEYS,
   type WifiAuth,
 } from '.';
 import { encodeImage } from '../imageData';
@@ -30,6 +33,8 @@ export interface FieldDef {
   placeholder?: string;
   rows?: number;
   showIf?: (f: FormValues) => boolean;
+  /** Fields sharing a group are shown together in a collapsible section (i18n key `group.<name>`). */
+  group?: string;
 }
 
 export type FormValues = Record<string, string | boolean | Uint8Array | null>;
@@ -42,6 +47,14 @@ export interface FormDef {
 
 const s = (f: FormValues, k: string) => (typeof f[k] === 'string' ? (f[k] as string) : '');
 const b = (f: FormValues, k: string) => f[k] === true;
+
+const UTM_PLACEHOLDERS: Record<UtmKey, string> = {
+  source: 'flyer',
+  medium: 'qr',
+  campaign: 'autumn_sale',
+  term: '',
+  content: 'front',
+};
 
 const CONTACT_FIELDS: FieldDef[] = [
   { key: 'lastName', type: 'text', label: 'lastName' },
@@ -69,9 +82,12 @@ export const contactFields = (f: FormValues): ContactFields => ({
 
 export const FORMS: Record<PayloadKind, FormDef> = {
   url: {
-    fields: [{ key: 'url', type: 'url', label: 'url', placeholder: 'https://example.com' }],
-    defaults: { url: 'https://example.com' },
-    build: (f) => buildUrl({ url: s(f, 'url') }),
+    fields: [
+      { key: 'url', type: 'url', label: 'url', placeholder: 'https://example.com' },
+      ...UTM_KEYS.map((k): FieldDef => ({ key: `utm_${k}`, type: 'text', label: `utm_${k}`, group: 'utm', placeholder: UTM_PLACEHOLDERS[k] })),
+    ],
+    defaults: { url: 'https://example.com', ...Object.fromEntries(UTM_KEYS.map((k) => [`utm_${k}`, ''])) },
+    build: (f) => buildUrl({ url: s(f, 'url'), utm: Object.fromEntries(UTM_KEYS.map((k) => [k, s(f, `utm_${k}`)])) }),
   },
   text: {
     fields: [{ key: 'text', type: 'textarea', label: 'text', rows: 5 }],
@@ -124,6 +140,7 @@ export const FORMS: Record<PayloadKind, FormDef> = {
         label: 'auth',
         options: [
           { value: 'WPA', label: 'WPA/WPA2/WPA3' },
+          { value: 'SAE', label: 'option.wpa3Only' },
           { value: 'WEP', label: 'WEP' },
           { value: 'nopass', label: 'option.none' },
         ],
@@ -152,16 +169,29 @@ export const FORMS: Record<PayloadKind, FormDef> = {
       { key: 'allDay', type: 'checkbox', label: 'allDay' },
       { key: 'start', type: 'datetime', label: 'start' },
       { key: 'end', type: 'datetime', label: 'end' },
+      {
+        key: 'timeZone',
+        type: 'select',
+        label: 'timeZone',
+        options: [
+          { value: 'floating', label: 'option.tzFloating' },
+          { value: 'local', label: 'option.tzLocal' },
+          { value: 'Asia/Tokyo', label: 'option.tzTokyo' },
+          { value: 'UTC', label: 'UTC' },
+        ],
+        showIf: (f) => !f.allDay,
+      },
       { key: 'location', type: 'text', label: 'location' },
       { key: 'description', type: 'textarea', label: 'description', rows: 2 },
     ],
-    defaults: { summary: '', allDay: false, start: '', end: '', location: '', description: '' },
+    defaults: { summary: '', allDay: false, start: '', end: '', timeZone: 'floating', location: '', description: '' },
     build: (f) =>
       buildEvent({
         summary: s(f, 'summary'),
         start: s(f, 'start'),
         end: s(f, 'end'),
         allDay: b(f, 'allDay'),
+        timeZone: (s(f, 'timeZone') || 'floating') as EventTimeZone,
         location: s(f, 'location'),
         description: s(f, 'description'),
       }),

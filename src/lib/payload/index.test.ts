@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   buildEmail,
   buildEvent,
+  toIcalUtc,
+  withUtm,
   buildGeo,
   buildGs1,
   buildMecard,
@@ -122,5 +124,58 @@ describe('payload builders', () => {
     expect(Array.from(parseHex('0x01 0x02')!)).toEqual([1, 2]);
     expect(parseHex('abc')).toBeNull();
     expect(parseHex('zz')).toBeNull();
+  });
+});
+
+describe('event time zones and WPA3', () => {
+  const base = { summary: 'M', start: '2026-10-05T10:00', end: '2026-10-05T11:30', allDay: false, location: '', description: '' };
+
+  it('keeps floating times unchanged by default', () => {
+    expect(buildEvent(base).text).toContain('DTSTART:20261005T100000\r\nDTEND:20261005T113000');
+  });
+
+  it('converts a zoned wall-clock time to UTC', () => {
+    expect(toIcalUtc('2026-10-05T10:00', 'Asia/Tokyo')).toBe('20261005T010000Z');
+    expect(toIcalUtc('2026-01-01T00:30', 'Asia/Tokyo')).toBe('20251231T153000Z');
+    expect(toIcalUtc('2026-10-05T10:00', 'UTC')).toBe('20261005T100000Z');
+    const v = buildEvent({ ...base, timeZone: 'Asia/Tokyo' }).text;
+    expect(v).toContain('DTSTART:20261005T010000Z\r\nDTEND:20261005T023000Z');
+  });
+
+  it('follows daylight saving time on both sides of a change', () => {
+    // New York: EDT (UTC-4) until 1 Nov 2026 02:00, then EST (UTC-5).
+    expect(toIcalUtc('2026-10-31T12:00', 'America/New_York')).toBe('20261031T160000Z');
+    expect(toIcalUtc('2026-11-02T12:00', 'America/New_York')).toBe('20261102T170000Z');
+    expect(toIcalUtc('2026-03-08T03:30', 'America/New_York')).toBe('20260308T073000Z');
+  });
+
+  it('ignores the time zone for all-day events', () => {
+    expect(buildEvent({ ...base, allDay: true, timeZone: 'Asia/Tokyo' }).text).toContain('DTSTART;VALUE=DATE:20261005');
+  });
+
+  it('builds WPA3-only networks', () => {
+    expect(buildWifi({ ssid: 'x', password: 'secret12', auth: 'SAE', hidden: false }).text).toBe('WIFI:T:SAE;S:x;P:secret12;;');
+  });
+});
+
+describe('UTM parameters', () => {
+  it('leaves the URL alone when nothing is filled in', () => {
+    expect(buildUrl({ url: 'https://example.com', utm: { source: ' ' } }).text).toBe('https://example.com');
+  });
+
+  it('adds parameters and keeps the existing query and fragment', () => {
+    expect(withUtm('https://example.com/a?x=1#top', { source: 'flyer', medium: 'qr', campaign: '秋 sale' })).toBe(
+      'https://example.com/a?x=1&utm_source=flyer&utm_medium=qr&utm_campaign=%E7%A7%8B+sale#top',
+    );
+  });
+
+  it('replaces an existing utm parameter', () => {
+    expect(withUtm('https://example.com/?utm_source=old&b=2', { source: 'new' })).toBe('https://example.com/?utm_source=new&b=2');
+  });
+
+  it('does not add parameters to other schemes and says so', () => {
+    const p = buildUrl({ url: 'mailto:a@example.com', utm: { source: 'x' } });
+    expect(p.text).toBe('mailto:a@example.com');
+    expect(p.warnings).toContain('payload.url.utmScheme');
   });
 });

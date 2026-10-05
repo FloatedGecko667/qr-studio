@@ -4,7 +4,7 @@
  * builds links only from the validated pieces, never from the raw text.
  */
 
-export type WifiAuth = 'WPA' | 'WEP' | 'nopass';
+export type WifiAuth = 'WPA' | 'SAE' | 'WEP' | 'nopass';
 
 export interface Contact {
   name: string;
@@ -243,7 +243,7 @@ export function parseScanned(raw: string): Scanned {
     const ssid = field(f, 'S');
     if (!ssid) return { kind: 'text' };
     const t = field(f, 'T').toUpperCase();
-    const auth: WifiAuth = t === 'WEP' ? 'WEP' : t === '' || t === 'NOPASS' ? 'nopass' : 'WPA';
+    const auth: WifiAuth = t === 'WEP' ? 'WEP' : t === 'SAE' ? 'SAE' : t === '' || t === 'NOPASS' ? 'nopass' : 'WPA';
     return { kind: 'wifi', ssid, password: field(f, 'P'), auth, hidden: field(f, 'H').toLowerCase() === 'true' };
   }
 

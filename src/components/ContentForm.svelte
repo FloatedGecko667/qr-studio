@@ -11,6 +11,8 @@
 
   const form = $derived(FORMS[app.kind]);
   const values = $derived(app.fields[app.kind]);
+  const ungrouped = $derived(form.fields.filter((f) => !f.group));
+  const groups = $derived([...new Set(form.fields.flatMap((f) => (f.group ? [f.group] : [])))]);
   let fileError = $state('');
 
   function str(key: string): string {
@@ -60,59 +62,81 @@
   {#if app.kind === 'geo'}<GeoInput />{/if}
 
   <div class="grid2">
-    {#each form.fields as f (f.key)}
-      {#if !f.showIf || f.showIf(values)}
-        {#if f.type === 'checkbox'}
-          <label class="check full">
-            <input type="checkbox" checked={values[f.key] === true} onchange={(e) => app.setField(f.key, e.currentTarget.checked)} />
-            {t(`field.${f.label}`)}
-          </label>
-        {:else if f.type === 'select'}
-          <label class="field">
-            <span>{t(`field.${f.label}`)}</span>
-            <select value={str(f.key)} onchange={(e) => app.setField(f.key, e.currentTarget.value)}>
-              {#each f.options ?? [] as o (o.value)}
-                <option value={o.value}>{o.label.startsWith('option.') ? t(o.label) : o.label}</option>
-              {/each}
-            </select>
-          </label>
-        {:else if f.type === 'textarea'}
-          <label class="field full">
-            <span>{t(`field.${f.label}`)}</span>
-            <textarea
-              rows={f.rows ?? 3}
-              placeholder={f.placeholder}
-              value={str(f.key)}
-              oninput={(e) => app.setField(f.key, e.currentTarget.value)}></textarea>
-          </label>
-        {:else if f.type === 'file'}
-          <label class="field full">
-            <span>{t(`field.${f.label}`)}</span>
-            <input type="file" onchange={onFile} />
-            {#if fileError}<span class="msg error" role="alert">{fileError}</span>
-            {:else if fileBytes}<span class="muted">{t('field.fileSize', { size: formatNumber(fileBytes) })}</span>{/if}
-          </label>
-        {:else if f.type === 'datetime'}
-          <label class="field">
-            <span>{t(`field.${f.label}`)}</span>
-            <input type={inputType(f)} value={dateValue(f.key)} oninput={(e) => app.setField(f.key, e.currentTarget.value)} />
-          </label>
-        {:else}
-          <label class="field" class:full={f.type === 'url' || f.type === 'text'}>
-            <span>{t(`field.${f.label}`)}</span>
-            <input
-              type={f.type === 'number' ? 'text' : f.type}
-              inputmode={f.type === 'number' ? 'decimal' : undefined}
-              autocomplete="off"
-              spellcheck="false"
-              placeholder={f.placeholder}
-              value={str(f.key)}
-              oninput={(e) => app.setField(f.key, e.currentTarget.value)} />
-          </label>
-        {/if}
-      {/if}
+    {#each ungrouped as f (f.key)}
+      {@render field(f)}
     {/each}
   </div>
+
+  {#each groups as g (g)}
+    {@const fields = form.fields.filter((f) => f.group === g)}
+    <details class="group" open={fields.some((f) => str(f.key) !== '')}>
+      <summary>{t(`group.${g}`)}</summary>
+      <div class="stack">
+        <p class="muted">{t(`group.${g}.hint`)}</p>
+        <div class="grid2">
+          {#each fields as f (f.key)}
+            {@render field(f)}
+          {/each}
+        </div>
+        {#if g === 'utm' && app.payload.text && fields.some((f) => str(f.key).trim() !== '')}
+          <p class="final">{t('group.utm.result')}<code>{app.payload.text}</code></p>
+        {/if}
+      </div>
+    </details>
+  {/each}
+
+  {#snippet field(f: FieldDef)}
+    {#if !f.showIf || f.showIf(values)}
+      {#if f.type === 'checkbox'}
+        <label class="check full">
+          <input type="checkbox" checked={values[f.key] === true} onchange={(e) => app.setField(f.key, e.currentTarget.checked)} />
+          {t(`field.${f.label}`)}
+        </label>
+      {:else if f.type === 'select'}
+        <label class="field">
+          <span>{t(`field.${f.label}`)}</span>
+          <select value={str(f.key)} onchange={(e) => app.setField(f.key, e.currentTarget.value)}>
+            {#each f.options ?? [] as o (o.value)}
+              <option value={o.value}>{o.label.startsWith('option.') ? t(o.label) : o.label}</option>
+            {/each}
+          </select>
+        </label>
+      {:else if f.type === 'textarea'}
+        <label class="field full">
+          <span>{t(`field.${f.label}`)}</span>
+          <textarea
+            rows={f.rows ?? 3}
+            placeholder={f.placeholder}
+            value={str(f.key)}
+            oninput={(e) => app.setField(f.key, e.currentTarget.value)}></textarea>
+        </label>
+      {:else if f.type === 'file'}
+        <label class="field full">
+          <span>{t(`field.${f.label}`)}</span>
+          <input type="file" onchange={onFile} />
+          {#if fileError}<span class="msg error" role="alert">{fileError}</span>
+          {:else if fileBytes}<span class="muted">{t('field.fileSize', { size: formatNumber(fileBytes) })}</span>{/if}
+        </label>
+      {:else if f.type === 'datetime'}
+        <label class="field">
+          <span>{t(`field.${f.label}`)}</span>
+          <input type={inputType(f)} value={dateValue(f.key)} oninput={(e) => app.setField(f.key, e.currentTarget.value)} />
+        </label>
+      {:else}
+        <label class="field" class:full={f.type === 'url' || (f.type === 'text' && !f.group)}>
+          <span>{t(`field.${f.label}`)}</span>
+          <input
+            type={f.type === 'number' ? 'text' : f.type}
+            inputmode={f.type === 'number' ? 'decimal' : undefined}
+            autocomplete="off"
+            spellcheck="false"
+            placeholder={f.placeholder}
+            value={str(f.key)}
+            oninput={(e) => app.setField(f.key, e.currentTarget.value)} />
+        </label>
+      {/if}
+    {/if}
+  {/snippet}
 
   <UsageMeter />
 
@@ -147,6 +171,26 @@
   }
   .full {
     grid-column: 1 / -1;
+  }
+  .group {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 12px;
+  }
+  .group summary {
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 13px;
+  }
+  .group[open] summary {
+    margin-bottom: 8px;
+  }
+  .final {
+    font-size: 12px;
+    word-break: break-all;
+  }
+  .final code {
+    font-family: inherit;
   }
   p {
     margin: 0;

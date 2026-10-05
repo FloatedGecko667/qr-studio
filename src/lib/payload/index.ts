@@ -76,11 +76,35 @@ export function checkUrl(value: string): { errors: string[]; warnings: string[] 
   return { errors: [], warnings: [] };
 }
 
-export function buildUrl(f: { url: string }): Payload {
-  const url = f.url.trim();
-  if (!url) return fail('payload.required');
-  const { errors, warnings } = checkUrl(url);
-  return errors.length ? fail(...errors) : ok(url, warnings);
+export const UTM_KEYS = ['source', 'medium', 'campaign', 'term', 'content'] as const;
+export type UtmKey = (typeof UTM_KEYS)[number];
+
+/**
+ * Adds or replaces utm_* query parameters, keeping the other parameters and the fragment.
+ * Returns null when the URL cannot carry them (not http/https).
+ */
+export function withUtm(url: string, utm: Partial<Record<UtmKey, string>>): string | null {
+  const entries = UTM_KEYS.map((k) => [k, (utm[k] ?? '').trim()] as const).filter(([, v]) => v);
+  if (!entries.length) return url;
+  let u: URL;
+  try {
+    u = new URL(url);
+  } catch {
+    return null;
+  }
+  if (u.protocol !== 'http:' && u.protocol !== 'https:') return null;
+  for (const [k, v] of entries) u.searchParams.set(`utm_${k}`, v);
+  return u.toString();
+}
+
+export function buildUrl(f: { url: string; utm?: Partial<Record<UtmKey, string>> }): Payload {
+  const raw = f.url.trim();
+  if (!raw) return fail('payload.required');
+  const { errors, warnings } = checkUrl(raw);
+  if (errors.length) return fail(...errors);
+  const url = withUtm(raw, f.utm ?? {});
+  if (url === null) return ok(raw, [...warnings, 'payload.url.utmScheme']);
+  return ok(url, warnings);
 }
 
 export function buildText(f: { text: string }): Payload {
@@ -133,7 +157,8 @@ export function buildEmail(f: { to: string; subject: string; body: string; forma
   return ok(`mailto:${to}${params.length ? `?${params.join('&')}` : ''}`);
 }
 
-export type WifiAuth = 'WPA' | 'WEP' | 'nopass';
+/** WPA covers WPA/WPA2/WPA3 transition networks; SAE is WPA3-only (WPA3 Specification, "T:SAE"). */
+export type WifiAuth = 'WPA' | 'SAE' | 'WEP' | 'nopass';
 
 export function buildWifi(f: { ssid: string; password: string; auth: WifiAuth; hidden: boolean }): Payload {
   if (!f.ssid) return fail('payload.wifi.ssidRequired');
@@ -214,6 +239,50 @@ export function toIcalDate(value: string): string | null {
   return m[4] ? `${m[1]}${m[2]}${m[3]}T${m[4]}${m[5]}00` : `${m[1]}${m[2]}${m[3]}`;
 }
 
+/** Time zones offered for events; "floating" keeps the wall-clock time without a zone. */
+export type EventTimeZone = 'floating' | 'local' | 'Asia/Tokyo' | 'UTC';
+
+/** Offset of `zone` from UTC at the instant `utcMs`, in milliseconds. */
+function zoneOffset(utcMs: number, zone: string): number {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: zone,
+    hourCycle: 'h23',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  }).formatToParts(new Date(utcMs));
+  const n = (type: string) => Number(parts.find((p) => p.type === type)?.value);
+  return Date.UTC(n('year'), n('month') - 1, n('day'), n('hour'), n('minute'), n('second')) - utcMs;
+}
+
+/**
+ * "2026-09-28T10:00" in `zone` -> "20260928T010000Z". Uses UTC rather than TZID, because a TZID
+ * needs a VTIMEZONE block that calendar apps do not all read from a bare VEVENT.
+ */
+export function toIcalUtc(value: string, zone: string): string | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(value);
+  if (!m) return null;
+  let wall: number;
+  try {
+    wall = Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]);
+    // Two passes settle the offset when the guess and the result fall on different sides of a DST change.
+    let utc = wall - zoneOffset(wall, zone);
+    utc = wall - zoneOffset(utc, zone);
+    return new Date(utc).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+  } catch {
+    return null;
+  }
+}
+
+export function resolveTimeZone(tz: EventTimeZone): string | null {
+  if (tz === 'floating') return null;
+  if (tz === 'local') return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+  return tz;
+}
+
 export function buildEvent(f: {
   summary: string;
   start: string;
@@ -221,10 +290,13 @@ export function buildEvent(f: {
   allDay: boolean;
   location: string;
   description: string;
+  timeZone?: EventTimeZone;
 }): Payload {
   if (!f.summary) return fail('payload.event.summaryRequired');
-  const start = toIcalDate(f.allDay ? f.start.slice(0, 10) : f.start);
-  const end = f.end ? toIcalDate(f.allDay ? f.end.slice(0, 10) : f.end) : null;
+  const zone = f.allDay ? null : resolveTimeZone(f.timeZone ?? 'floating');
+  const toDate = (v: string) => (f.allDay ? toIcalDate(v.slice(0, 10)) : zone ? toIcalUtc(v, zone) : toIcalDate(v));
+  const start = toDate(f.start);
+  const end = f.end ? toDate(f.end) : null;
   if (!start) return fail('payload.event.startRequired');
   if (f.end && !end) return fail('payload.event.endInvalid');
   if (end && end < start) return fail('payload.event.endBeforeStart');
