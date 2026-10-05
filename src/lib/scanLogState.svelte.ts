@@ -77,10 +77,15 @@ class ScanLogState {
     this.#save();
   }
 
+  /** Empties the log; the list clears once storage has, so a reload cannot bring rows back. */
   async clear(): Promise<void> {
     await this.load();
+    try {
+      await set('entries', [], ls());
+    } catch {
+      // Storage unavailable: clear this session's list anyway.
+    }
     this.entries = [];
-    this.#save();
   }
 
   /** Call from a tap (e.g. starting the camera): browsers only allow audio after a gesture. */
