@@ -25,7 +25,7 @@ export default defineConfig({
       name: 'visual',
       testMatch: /visual/,
       snapshotPathTemplate: '{testDir}/__screenshots__/{arg}-{platform}{ext}',
-      expect: { toHaveScreenshot: { maxDiffPixelRatio: 0.01 } },
+      expect: { toHaveScreenshot: { maxDiffPixels: 50 } },
       use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 800 }, deviceScaleFactor: 1 },
     },
     // Other engines run the main flows only (generate, save, scan, batch, history, simple view).

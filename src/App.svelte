@@ -14,6 +14,8 @@
   import { applyTheme } from './lib/theme';
   import { clearLaunchParams, launchTarget, type Tab } from './lib/launch';
   import { lazy } from './lib/ui/lazy';
+  import { isMac, isTextEntry, shortcutAction, undoAction, type Shortcut } from './lib/ui/keys';
+  import { undoTargets } from './lib/undoTargets.svelte';
   import { stickySidebar } from './lib/ui/stickySidebar';
 
   const TABS: Record<Mode, Tab[]> = {
@@ -39,6 +41,7 @@
   let licensesOpen = $state(false);
   let backupOpen = $state(false);
   let helpOpen = $state(false);
+  let shortcutsOpen = $state(false);
   /** Feedback goes to GitHub Issues; nothing is sent from the app itself. */
   const FEEDBACK_URL = 'https://github.com/FloatedGecko667/qr-studio/issues/new';
   let ribbonHeight = $state(0);
@@ -50,13 +53,50 @@
   function onWindowPointer(e: PointerEvent) {
     if (settingsOpen && settingsEl && !settingsEl.contains(e.target as Node)) settingsOpen = false;
   }
+  const mac = typeof navigator !== 'undefined' && isMac(navigator.platform);
+
   function onWindowKey(e: KeyboardEvent) {
     if (settingsOpen && e.key === 'Escape') {
       settingsOpen = false;
       settingsEl?.querySelector('summary')?.focus();
     }
+    if (e.defaultPrevented) return;
+    const typing = isTextEntry(document.activeElement);
+    const shortcut = shortcutAction(e, mac, typing);
+    if (shortcut && runShortcut(shortcut)) {
+      e.preventDefault();
+      return;
+    }
+    const action = tab === 'generate' && !typing ? undoAction(e, mac) : null;
+    if (action && undoTarget) {
+      e.preventDefault();
+      undoTarget[action]();
+    }
+  }
+
+  /** Runs a shortcut; false when it does not apply here (the browser then handles the key). */
+  function runShortcut(s: Shortcut): boolean {
+    if (s.type === 'help') {
+      shortcutsOpen = true;
+      return true;
+    }
+    if (s.type === 'tab') {
+      const next = tabs[s.index];
+      if (next) tab = next;
+      return !!next;
+    }
+    if (s.type === 'mode') {
+      setMode(s.mode);
+      return true;
+    }
+    // Save, copy and print press the preview's own button, so they behave exactly the same.
+    const button = tab === 'generate' ? document.querySelector<HTMLButtonElement>(`[data-shortcut="${s.type}"]`) : null;
+    if (!button || button.disabled) return false;
+    button.click();
+    return true;
   }
   const mode = $derived(app.settings.mode);
+  const undoTarget = $derived(undoTargets[mode]);
   const tabs = $derived(TABS[mode]);
 
   // Sticky columns and scroll-into-view offsets need the fixed ribbon's height.
@@ -87,6 +127,7 @@
   const loadScanner = lazy(() => import('./components/Scanner.svelte'));
   const loadBackup = lazy(() => import('./components/Backup.svelte'));
   const loadHelp = lazy(() => import('./components/Help.svelte'));
+  const loadShortcuts = lazy(() => import('./components/Shortcuts.svelte'));
   const loadHistory = lazy(() => import('./components/History.svelte'));
 
   const simple = $derived(app.settings.view === 'simple');
@@ -176,6 +217,28 @@
     <div class="segmented" role="group" aria-label={t('view.label')}>
       <button type="button" aria-pressed={simple} onclick={() => setView('simple')}>{t('view.simple')}</button>
       <button type="button" aria-pressed={!simple} onclick={() => setView('detailed')}>{t('view.detailed')}</button>
+    </div>
+    <div class="undo" role="group" aria-label={t('undo.label')}>
+      <button
+        type="button"
+        class="btn small icon"
+        disabled={!undoTarget?.canUndo}
+        onclick={() => undoTarget?.undo()}
+        aria-label={t('undo.undo')}
+        title={`${t('undo.undo')} (${mac ? '⌘Z' : 'Ctrl+Z'})`}
+        aria-keyshortcuts={mac ? 'Meta+Z' : 'Control+Z'}
+        ><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12.5 8c-2.65 0-5.05 1-6.9 2.6L2 7v9h9l-3.62-3.62A7.95 7.95 0 0 1 12.5 10.5c3.54 0 6.55 2.31 7.6 5.5l2.37-.78A10.5 10.5 0 0 0 12.5 8z" /></svg></button
+      >
+      <button
+        type="button"
+        class="btn small icon"
+        disabled={!undoTarget?.canRedo}
+        onclick={() => undoTarget?.redo()}
+        aria-label={t('undo.redo')}
+        title={`${t('undo.redo')} (${mac ? '⇧⌘Z' : 'Ctrl+Y'})`}
+        aria-keyshortcuts={mac ? 'Shift+Meta+Z' : 'Control+Y'}
+        ><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M18.4 10.6A10.46 10.46 0 0 0 11.5 8c-4.65 0-8.58 3.03-9.96 7.22l2.36.78a8 8 0 0 1 7.6-5.5c1.95 0 3.73.72 5.12 1.88L13 16h9V7z" /></svg></button
+      >
     </div>
     <p class="muted">{t(simple ? 'view.simpleHint' : 'view.detailedHint')}</p>
   </div>
@@ -274,6 +337,7 @@
   <p>{t('app.trademark')}</p>
   <div class="footer-links">
     <button type="button" class="link" onclick={() => (helpOpen = true)}>{t('help.open')}</button>
+    <button type="button" class="link" onclick={() => (shortcutsOpen = true)}>{t('shortcuts.open')}</button>
     <a class="link" href={FEEDBACK_URL} target="_blank" rel="noopener noreferrer">{t('app.feedback')}</a>
     <button type="button" class="link" onclick={() => (licensesOpen = true)}>{t('app.licenses')}</button>
   </div>
@@ -282,6 +346,9 @@
 {#if tab === 'generate'}<PreviewDock anchor={previewEl} />{/if}
 
 <Licenses bind:open={licensesOpen} />
+{#if shortcutsOpen}
+  {#await loadShortcuts() then { default: Shortcuts }}<Shortcuts bind:open={shortcutsOpen} {mac} />{/await}
+{/if}
 {#if helpOpen}
   {#await loadHelp() then { default: Help }}<Help bind:open={helpOpen} />{/await}
 {/if}
@@ -511,6 +578,20 @@
   .view-bar p {
     margin: 0;
     font-size: 12px;
+  }
+  .undo {
+    display: flex;
+    gap: 4px;
+  }
+  .btn.icon {
+    min-width: 32px;
+    min-height: 32px;
+    padding: 4px;
+    justify-content: center;
+  }
+  .btn.icon svg {
+    width: 18px;
+    height: 18px;
   }
   /* Simple view: two columns, no capacity table; narrower so the code stays large and close. */
   .layout.simple {

@@ -1,4 +1,6 @@
 import { loadJson, saveJson } from '../storage/local';
+import { UndoHistory, type Undoable } from '../undo';
+import { undoTargets } from '../undoTargets.svelte';
 import { BARCODE_LABELS, encodeBarcode, IS_MATRIX, maxValueLength, SAMPLE_VALUES, type BarcodeOptions, type BarcodeType, type EncodeResult } from './index';
 import type { BarcodeStyle } from './render';
 import {
@@ -12,11 +14,19 @@ import {
   type BarcodeSettings,
 } from './settings';
 
+interface Snapshot {
+  settings: BarcodeSettings;
+  value: string;
+}
+
 /** State of one generator tab: the linear barcodes, or Data Matrix. */
-export class BarcodeState {
+export class BarcodeState implements Undoable {
   settings: BarcodeSettings;
   value = $state('');
   result: EncodeResult;
+  canUndo = $state(false);
+  canRedo = $state(false);
+  private history = new UndoHistory<Snapshot>();
 
   constructor(
     private key: string,
@@ -33,9 +43,45 @@ export class BarcodeState {
     saveJson(this.key, this.settings);
   }
 
+  private snapshot(): Snapshot {
+    return { settings: $state.snapshot(this.settings), value: this.value };
+  }
+
+  private checkpoint(key: string): void {
+    this.history.record(this.snapshot(), key);
+    this.syncUndo();
+  }
+
+  private syncUndo(): void {
+    this.canUndo = this.history.canUndo;
+    this.canRedo = this.history.canRedo;
+  }
+
+  private apply(s: Snapshot | null): void {
+    if (!s) return;
+    // The typed data is the input's own business; it only comes back with a change of symbology
+    // (which may have swapped in a sample).
+    if (s.settings.type !== this.settings.type) this.value = s.value;
+    this.settings.type = s.settings.type;
+    this.settings.options = s.settings.options;
+    this.settings.style = s.settings.style;
+    this.settings.output = s.settings.output;
+    this.persist();
+    this.syncUndo();
+  }
+
+  undo(): void {
+    this.apply(this.history.undo(this.snapshot()));
+  }
+
+  redo(): void {
+    this.apply(this.history.redo(this.snapshot()));
+  }
+
   setType(type: BarcodeType): void {
     const prev = this.settings.type;
     if (type === prev || !this.types.includes(type)) return;
+    this.checkpoint('type');
     this.settings.type = type;
     // Keep the user's value unless it was the previous sample, is too long for the new type's
     // field, or cannot be encoded any more.
@@ -53,16 +99,19 @@ export class BarcodeState {
   }
 
   updateOptions(patch: Partial<BarcodeOptions>): void {
+    this.checkpoint(`options:${Object.keys(patch).sort().join(',')}`);
     this.settings.options = normalizeBarcodeOptions({ ...this.settings.options, ...patch });
     this.persist();
   }
 
   updateStyle(patch: Partial<BarcodeStyle>): void {
+    this.checkpoint(`style:${Object.keys(patch).sort().join(',')}`);
     this.settings.style = normalizeBarcodeStyle({ ...this.settings.style, ...patch });
     this.persist();
   }
 
   updateOutput(patch: Partial<BarcodeOutput>): void {
+    this.checkpoint(`output:${Object.keys(patch).sort().join(',')}`);
     this.settings.output = normalizeBarcodeOutput({ ...this.settings.output, ...patch });
     this.persist();
   }
@@ -70,6 +119,7 @@ export class BarcodeState {
   /** Restores a history entry; stored values are untrusted and pass through the normalizers. */
   restore(fields: Record<string, unknown>, options: unknown, style: unknown): void {
     const s = loadBarcodeSettings({ type: fields.type, options, style, output: this.settings.output }, this.types, this.styleDefaults);
+    this.checkpoint('restore');
     this.settings.type = s.type;
     this.settings.options = s.options;
     this.settings.style = s.style;
@@ -90,3 +140,5 @@ export const matrixCode = new BarcodeState(
   ALL.filter((t) => IS_MATRIX.has(t)),
   { showText: false },
 );
+undoTargets.barcode = barcode;
+undoTargets.datamatrix = matrixCode;

@@ -308,9 +308,9 @@
     {/if}
 
     <div class="row" class:big={simple}>
-      <button type="button" class="btn primary" disabled={!svg || tooLarge} onclick={download}>{t(simple ? 'output.downloadPng' : 'output.download')}</button>
-      <button type="button" class="btn" disabled={!svg} onclick={print}>{t('output.print')}</button>
-      <button type="button" class="btn" disabled={!svg || tooLarge} onclick={copy}>{t('output.copy')}</button>
+      <button type="button" class="btn primary" disabled={!svg || tooLarge} onclick={download} data-shortcut="save">{t(simple ? 'output.downloadPng' : 'output.download')}</button>
+      <button type="button" class="btn" disabled={!svg} onclick={print} data-shortcut="print">{t('output.print')}</button>
+      <button type="button" class="btn" disabled={!svg || tooLarge} onclick={copy} data-shortcut="copy">{t('output.copy')}</button>
       {#if shareable}<button type="button" class="btn" disabled={!svg || tooLarge} onclick={share}>{t('output.share')}</button>{/if}
       {#if !simple}
         <button type="button" class="btn" disabled={!svg} onclick={copyData}>{t('output.copyText')}</button>

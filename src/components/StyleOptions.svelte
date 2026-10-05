@@ -51,7 +51,7 @@
       logoError = t(`style.logo.${r.error}`);
       return;
     }
-    app.logoDataUrl = r.dataUrl;
+    app.setLogo(r.dataUrl);
   }
 
   async function onLogo(e: Event) {
@@ -80,9 +80,7 @@
   }
 
   function applyPreset(p: Preset) {
-    app.settings.style = normalizeStyle({ ...s, ...(p.style as Partial<StyleSettings>) });
-    app.logoDataUrl = p.logoDataUrl;
-    app.persist();
+    app.replaceStyle({ ...s, ...(p.style as Partial<StyleSettings>) }, p.logoDataUrl);
   }
 
   async function removePreset(id: string) {
@@ -214,7 +212,7 @@
       {#if app.logoDataUrl}
         <div class="row">
           <img src={app.logoDataUrl} alt="" class="thumb" />
-          <button type="button" class="btn small danger" onclick={() => (app.logoDataUrl = null)}>{t('style.logoRemove')}</button>
+          <button type="button" class="btn small danger" onclick={() => app.setLogo(null)}>{t('style.logoRemove')}</button>
         </div>
       {/if}
     {:else}

@@ -392,13 +392,13 @@
     {/if}
 
     <div class="row" class:big={simple}>
-      <button type="button" class="btn primary" disabled={!svgs.length || tooLarge} onclick={download}>{t(simple ? 'output.downloadPng' : 'output.download')}</button>
+      <button type="button" class="btn primary" disabled={!svgs.length || tooLarge} onclick={download} data-shortcut="save">{t(simple ? 'output.downloadPng' : 'output.download')}</button>
       {#if svgs.length > 1}
         <button type="button" class="btn" disabled={tooLarge} onclick={downloadAll}>{t(out.format === 'pdf' ? 'output.downloadAllPdf' : 'output.downloadAll')}</button>
         <button type="button" class="btn" onclick={downloadSheet}>{t('output.downloadSheet')}</button>
       {/if}
-      <button type="button" class="btn" disabled={!svgs.length} onclick={print}>{t('output.print')}</button>
-      <button type="button" class="btn" disabled={!svgs.length} onclick={copy}>{t('output.copy')}</button>
+      <button type="button" class="btn" disabled={!svgs.length} onclick={print} data-shortcut="print">{t('output.print')}</button>
+      <button type="button" class="btn" disabled={!svgs.length} onclick={copy} data-shortcut="copy">{t('output.copy')}</button>
       {#if shareable}<button type="button" class="btn" disabled={!svgs.length || tooLarge} onclick={share}>{t('output.share')}</button>{/if}
       {#if !simple}
         <button type="button" class="btn" disabled={!svgs.length || !app.payload.text} onclick={copyData}>{t('output.copyText')}</button>
