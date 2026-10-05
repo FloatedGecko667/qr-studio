@@ -160,27 +160,78 @@
     if (video) video.srcObject = null;
   }
 
-  async function onFile(e: Event) {
-    const input = e.currentTarget as HTMLInputElement;
-    const files = [...(input.files ?? [])];
-    input.value = '';
+  /** Larger images are refused before decoding (a phone photo is a few MB). */
+  const MAX_IMAGE_BYTES = 30 * 1024 * 1024;
+
+  /** Reads every code in the given images (file picker, paste or drop); the last one is shown. */
+  async function scanFiles(files: File[]) {
+    const images = files.filter((f) => f.type.startsWith('image/'));
     if (!files.length) return;
     error = '';
+    notice = '';
     result = null;
-    // Every code in every chosen image goes to the log; the last one is shown.
+    if (!images.length) {
+      error = t('scan.notImage');
+      return;
+    }
     let found = false;
-    for (const file of files) {
+    for (const file of images) {
+      if (file.size > MAX_IMAGE_BYTES) {
+        error = t('scan.tooLarge', { mb: MAX_IMAGE_BYTES / 1024 / 1024 });
+        continue;
+      }
       let bitmap: ImageBitmap;
       try {
         bitmap = await createImageBitmap(file);
       } catch {
         error = t('scan.imageError');
-        return;
+        continue;
       }
       if (await process(frameData(bitmap, bitmap.width, bitmap.height), true, true)) found = true;
       bitmap.close();
     }
-    if (!found && !partials.length) error = t('scan.notFound');
+    if (found) error = '';
+    else if (!error && !partials.length) error = t('scan.notFound');
+  }
+
+  function onFile(e: Event) {
+    const input = e.currentTarget as HTMLInputElement;
+    const files = [...(input.files ?? [])];
+    input.value = '';
+    void scanFiles(files);
+  }
+
+  // Pasting an image anywhere on the scan tab reads it, unless the focus is in a text field.
+  onMount(() => {
+    const onPaste = (e: ClipboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target?.closest('input, textarea, [contenteditable="true"]')) return;
+      const files = [...(e.clipboardData?.files ?? [])];
+      if (!files.length) return;
+      e.preventDefault();
+      void scanFiles(files);
+    };
+    window.addEventListener('paste', onPaste);
+    return () => window.removeEventListener('paste', onPaste);
+  });
+
+  let dragging = $state(false);
+  const hasFiles = (e: DragEvent) => [...(e.dataTransfer?.types ?? [])].includes('Files');
+  function onDragOver(e: DragEvent) {
+    if (!hasFiles(e)) return;
+    e.preventDefault();
+    if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+    dragging = true;
+  }
+  function onDragLeave(e: DragEvent) {
+    // Moving over a child fires dragleave on the parent; only leaving the card counts.
+    if (!(e.currentTarget as HTMLElement).contains(e.relatedTarget as Node | null)) dragging = false;
+  }
+  function onDrop(e: DragEvent) {
+    if (!hasFiles(e)) return;
+    e.preventDefault();
+    dragging = false;
+    void scanFiles([...(e.dataTransfer?.files ?? [])]);
   }
 
   async function copy() {
@@ -221,9 +272,16 @@
   onDestroy(stop);
 </script>
 
-<section class="card stack" aria-labelledby="scan-heading">
+<section
+  class="card stack drop"
+  class:dragging
+  aria-labelledby="scan-heading"
+  ondragover={onDragOver}
+  ondragleave={onDragLeave}
+  ondrop={onDrop}>
   <h2 id="scan-heading">{t('scan.title')}</h2>
   <p class="muted">{t('scan.hint')}</p>
+  <p class="muted">{t('scan.pasteHint')}</p>
 
   <div class="row">
     {#if stream}
@@ -339,6 +397,15 @@
 <style>
   p {
     margin: 0;
+  }
+  .drop {
+    outline: 2px dashed transparent;
+    outline-offset: -6px;
+    transition: outline-color 0.15s;
+  }
+  .drop.dragging {
+    outline-color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 6%, var(--surface));
   }
   video {
     width: 100%;
