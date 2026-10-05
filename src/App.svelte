@@ -38,6 +38,9 @@
   let tab: Tab = $state(launch.tab ?? 'generate');
   let licensesOpen = $state(false);
   let backupOpen = $state(false);
+  let helpOpen = $state(false);
+  /** Feedback goes to GitHub Issues; nothing is sent from the app itself. */
+  const FEEDBACK_URL = 'https://github.com/FloatedGecko667/qr-studio/issues/new';
   let ribbonHeight = $state(0);
   let settingsOpen = $state(false);
   let settingsEl: HTMLDetailsElement | undefined = $state();
@@ -83,6 +86,7 @@
   const loadBatch = lazy(() => import('./components/Batch.svelte'));
   const loadScanner = lazy(() => import('./components/Scanner.svelte'));
   const loadBackup = lazy(() => import('./components/Backup.svelte'));
+  const loadHelp = lazy(() => import('./components/Help.svelte'));
   const loadHistory = lazy(() => import('./components/History.svelte'));
 
   const simple = $derived(app.settings.view === 'simple');
@@ -267,12 +271,19 @@
 <footer>
   <p>{t('app.privacy')}</p>
   <p>{t('app.trademark')}</p>
-  <button type="button" class="link" onclick={() => (licensesOpen = true)}>{t('app.licenses')}</button>
+  <div class="footer-links">
+    <button type="button" class="link" onclick={() => (helpOpen = true)}>{t('help.open')}</button>
+    <a class="link" href={FEEDBACK_URL} target="_blank" rel="noopener noreferrer">{t('app.feedback')}</a>
+    <button type="button" class="link" onclick={() => (licensesOpen = true)}>{t('app.licenses')}</button>
+  </div>
 </footer>
 
 {#if tab === 'generate'}<PreviewDock anchor={previewEl} />{/if}
 
 <Licenses bind:open={licensesOpen} />
+{#if helpOpen}
+  {#await loadHelp() then { default: Help }}<Help bind:open={helpOpen} />{/await}
+{/if}
 {#if backupOpen}
   {#await loadBackup() then { default: Backup }}<Backup bind:open={backupOpen} />{/await}
 {/if}
@@ -458,6 +469,16 @@
     .capacity-slot {
       position: sticky;
     }
+  }
+  .footer-links {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 4px 16px;
+  }
+  a.link {
+    font-size: 12px;
+    color: var(--accent);
   }
   .trust {
     display: flex;
