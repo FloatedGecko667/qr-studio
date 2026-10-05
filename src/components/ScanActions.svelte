@@ -3,6 +3,7 @@
   import { localeTag, t } from '../lib/i18n/index.svelte';
   import { AI_NAMES, gs1Date } from '../lib/payload/gs1';
   import { eventToIcs, icalToDate, links, parseScanned } from '../lib/payload/parse';
+  import { urlSafety } from '../lib/payload/urlSafety';
   import { newId } from '../lib/storage/records';
 
   /** Decoded text of a scan. Actions are offered for the recognised format; nothing opens by itself. */
@@ -50,6 +51,24 @@
   const isWeb = (url: string) => /^https?:\/\/\S+$/i.test(url);
 </script>
 
+<!-- Where a link really goes, with warning signs, shown next to every "Open". -->
+{#snippet destination(url: string)}
+  {@const s = urlSafety(url)}
+  {#if s}
+    <div class="dest" class:warn={s.warnings.length > 0}>
+      <p>{t('urlSafety.host')}: <strong class="host">{s.host}</strong></p>
+      {#if s.unicodeHost}<p>{t('urlSafety.unicode', { name: s.unicodeHost })}</p>{/if}
+      {#if s.warnings.length}
+        <ul>
+          {#each s.warnings as w (w)}
+            <li>{w === 'userinfo' ? t('urlSafety.userinfo', { user: s.userinfo, host: s.host }) : t(`urlSafety.${w}`)}</li>
+          {/each}
+        </ul>
+      {/if}
+    </div>
+  {/if}
+{/snippet}
+
 {#snippet item(key: string, label: string, value: string)}
   {#if value}
     <div class="item">
@@ -65,6 +84,7 @@
 {/snippet}
 
 {#if scanned.kind === 'url'}
+  {@render destination(scanned.url)}
   <div class="row">
     <a class="btn small" href={scanned.url} target="_blank" rel="noopener noreferrer">{t('scan.open')}</a>
   </div>
@@ -141,12 +161,35 @@
         <a class="btn small" href={links.geo(scanned.lat, scanned.lng)}>{t('scanAction.openMapApp')}</a>
       {/if}
     </div>
+    {#if scanned.kind === 'contact' && isWeb(scanned.contact.url)}{@render destination(scanned.contact.url)}{/if}
   </section>
 {/if}
 
 <style>
   p {
     margin: 0;
+  }
+  .dest {
+    display: grid;
+    gap: 4px;
+    margin-bottom: 8px;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 13px;
+    overflow-wrap: anywhere;
+  }
+  .dest.warn {
+    border-color: var(--warn);
+    background: var(--warn-bg);
+  }
+  .dest ul {
+    margin: 0;
+    padding-left: 1.2em;
+    color: var(--warn);
+  }
+  .host {
+    font-size: 15px;
   }
   .actions {
     border-top: 1px solid var(--border);

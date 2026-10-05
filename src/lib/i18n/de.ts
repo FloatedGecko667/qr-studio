@@ -673,6 +673,13 @@ export const de: Record<keyof typeof ja, string> = {
   'gs1ai.8008': 'Herstellungsdatum und -uhrzeit',
   'gs1ai.other': 'AI ({ai})',
   'scanAction.gs1': 'GS1-Digital-Link-Daten',
+  'urlSafety.host': 'Ziel',
+  'urlSafety.unicode': 'Angezeigt als: {name}',
+  'urlSafety.http': 'Unverschlüsselte http-Verbindung: Ihre Eingaben könnten mitgelesen werden',
+  'urlSafety.idn': 'Internationalisierte Domain (xn--…): Prüfen Sie, ob ähnlich aussehende Zeichen eine echte Website nachahmen',
+  'urlSafety.ip': 'Verbindet direkt mit einer IP-Adresse statt mit einem Domainnamen',
+  'urlSafety.userinfo': '„{user}“ vor dem „@“ ist nicht das Ziel; der Link führt tatsächlich zu {host}',
+  'urlSafety.shortener': 'Gekürzter Link: Das eigentliche Ziel zeigt sich erst beim Öffnen',
   'backup.open': 'Sichern und wiederherstellen',
   'backup.title': 'Sichern und wiederherstellen',
   'backup.hint':

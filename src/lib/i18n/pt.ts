@@ -670,6 +670,13 @@ export const pt: Record<keyof typeof ja, string> = {
   'gs1ai.8008': 'Data e hora de fabricação',
   'gs1ai.other': 'AI ({ai})',
   'scanAction.gs1': 'Dados do GS1 Digital Link',
+  'urlSafety.host': 'Destino',
+  'urlSafety.unicode': 'Exibido como: {name}',
+  'urlSafety.http': 'Conexão http sem criptografia: o que você digitar pode ser lido por outros',
+  'urlSafety.idn': 'Domínio internacionalizado (xn--…): verifique se letras parecidas não imitam um site verdadeiro',
+  'urlSafety.ip': 'Conecta-se diretamente a um endereço IP em vez de um nome de domínio',
+  'urlSafety.userinfo': '“{user}” antes do “@” não é o destino; o link vai, na verdade, para {host}',
+  'urlSafety.shortener': 'Link encurtado: o destino real só é conhecido ao abri-lo',
   'backup.open': 'Backup e restauração',
   'backup.title': 'Backup e restauração',
   'backup.hint':

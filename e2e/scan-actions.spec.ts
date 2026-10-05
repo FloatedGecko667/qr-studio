@@ -79,3 +79,24 @@ test('phone: offers a call link built from the validated number', async ({ page 
   await generateAndScan(page);
   await expect(actions(page).getByRole('link', { name: '電話をかける' })).toHaveAttribute('href', 'tel:+81312345678');
 });
+
+test('URL: shows where the link really goes and warns about suspicious signs', async ({ page }) => {
+  await openApp(page);
+  await page.getByLabel('URL', { exact: true }).fill('http://www.bank.example@bit.ly/x');
+  await generateAndScan(page);
+  await expect(page.getByText('接続先: bit.ly')).toBeVisible();
+  for (const warning of [/暗号化されない http/, /「www\.bank\.example」は接続先ではありません。実際の接続先は bit\.ly/, /短縮 URL です/]) {
+    await expect(page.getByRole('listitem').filter({ hasText: warning })).toBeVisible();
+  }
+  const { violations } = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag22aa']).analyze();
+  expect(violations.map((v) => v.id)).toEqual([]);
+});
+
+test('URL: an internationalised domain is shown in both forms', async ({ page }) => {
+  await openApp(page);
+  await page.getByLabel('URL', { exact: true }).fill('https://xn--80ak6aa92e.com/');
+  await generateAndScan(page);
+  await expect(page.getByText('接続先: xn--80ak6aa92e.com')).toBeVisible();
+  await expect(page.getByText('表示上の名前：аррӏе.com')).toBeVisible();
+  await expect(page.getByText(/国際化ドメイン/)).toBeVisible();
+});
