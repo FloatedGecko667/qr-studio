@@ -64,6 +64,15 @@
       downloadBlob(blob, `${baseName()}.${extensionFor(out)}`);
     });
 
+  /** Prints at the output size; pixel sizes print at 96 dpi. */
+  const print = () =>
+    run(async () => {
+      const r = await exportSvg();
+      if (!r) return;
+      const { printSvgs } = await import('../lib/export/print');
+      await printSvgs([{ svg: r.svg, svgAttr: barcodeSize(r, out, kind).svgAttr }]);
+    });
+
   const shareable = canShareFiles();
   const shareKey = $derived(`${verifyKey}|${JSON.stringify(out)}`);
   // Kept so a second tap can share at once when the first one outlived the tap's permission.
@@ -263,9 +272,11 @@
       {/if}
       {#if tooLarge}<p class="msg error">{t('output.tooLarge')}</p>{/if}
     {/if}
+    {#if out.unit === 'px'}<p class="muted">{t('output.printPx')}</p>{/if}
 
     <div class="row">
       <button type="button" class="btn primary" disabled={!svg || tooLarge} onclick={download}>{t('output.download')}</button>
+      <button type="button" class="btn" disabled={!svg} onclick={print}>{t('output.print')}</button>
       <button type="button" class="btn" disabled={!svg || tooLarge} onclick={copy}>{t('output.copy')}</button>
       {#if shareable}<button type="button" class="btn" disabled={!svg || tooLarge} onclick={share}>{t('output.share')}</button>{/if}
       <button type="button" class="btn" disabled={!svg} onclick={copyData}>{t('output.copyText')}</button>

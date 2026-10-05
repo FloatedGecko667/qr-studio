@@ -270,6 +270,8 @@ export const ja = {
   'output.download': '保存',
   'output.downloadAll': 'すべてZIPで保存',
   'output.downloadAllPdf': 'すべて1つのPDFで保存（1ページに1つ）',
+  'output.print': '印刷',
+  'output.printPx': 'px 指定のまま印刷すると 96dpi（1px = 約0.26mm）として印刷します。印刷寸法を決めるときは mm を選んでください。',
   'output.downloadSheet': '1枚にまとめて保存',
   'output.copy': '画像をコピー',
   'output.copyText': 'データをコピー',

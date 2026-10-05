@@ -272,6 +272,8 @@ export const en: Record<keyof typeof ja, string> = {
   'output.download': 'Download',
   'output.downloadAll': 'Download all (ZIP)',
   'output.downloadAllPdf': 'Download all as one PDF (one per page)',
+  'output.print': 'Print',
+  'output.printPx': 'Printing with px sizes uses 96 dpi (1 px ≈ 0.26 mm). Choose mm to set the printed size.',
   'output.downloadSheet': 'Download as one sheet',
   'output.copy': 'Copy image',
   'output.copyText': 'Copy data',
