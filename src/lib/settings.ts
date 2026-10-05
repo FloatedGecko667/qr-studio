@@ -39,6 +39,10 @@ export interface StyleSettings {
   gradient: Gradient;
   /** Second colour of the gradient. */
   fg2: string;
+  /** Clear the modules behind the logo (otherwise it is drawn over them). */
+  logoClear: boolean;
+  /** Make a plain logo background transparent when loading the logo. */
+  logoRemoveBg: boolean;
 }
 
 export interface OutputSettings {
@@ -103,6 +107,8 @@ export const DEFAULT_STYLE: StyleSettings = {
   finderInner: 'square',
   gradient: 'none',
   fg2: '#2657d9',
+  logoClear: true,
+  logoRemoveBg: false,
 };
 
 export const DEFAULT_OUTPUT: OutputSettings = {

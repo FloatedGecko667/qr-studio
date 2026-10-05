@@ -30,7 +30,7 @@ test.describe('generate', () => {
     const pdf = (await readFile((await file.path())!)).toString('latin1');
     expect(pdf.startsWith('%PDF-1.4')).toBe(true);
     // 30 mm default = 85.0394 pt.
-    expect(pdf).toMatch(/\/MediaBox \[0 0 8[45]\.\d+ 8[45]\.\d+\]/);
+    expect(pdf).toContain('/MediaBox [0 0 85.0394 85.0394]');
     // Vector: the modules are paths, so a plain QR needs no embedded image.
     expect(pdf).not.toContain('/Subtype /Image');
 

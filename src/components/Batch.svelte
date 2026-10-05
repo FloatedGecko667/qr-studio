@@ -3,7 +3,7 @@
   import { app } from '../lib/app.svelte';
   import { BATCH_LIMIT, decodeCsv, itemsFromCsv, itemsFromLines, type BatchItem } from '../lib/batch';
   import type { BatchRequest, BatchResponse } from '../lib/batch.worker';
-  import { exportBlob, extensionFor, PDF_PX_DPI, renderStyle, svgsToPdf, type PdfSource } from '../lib/compose';
+  import { exportBlob, extensionFor, pdfSource, renderStyle, svgsToPdf, type PdfSource } from '../lib/compose';
   import { outputSize } from '../lib/render/output';
   import { downloadBlob, zipFiles } from '../lib/export/download';
   import { formatNumber, t } from '../lib/i18n/index.svelte';
@@ -64,8 +64,7 @@
         if (msg.type === 'item') {
           try {
             if (merge) {
-              const size = outputSize(msg, output);
-              pdfPages.push({ svg: msg.svg, pxWidth: size.pxWidth, pxHeight: size.pxHeight, dpi: output.unit === 'mm' ? output.dpi : PDF_PX_DPI });
+              pdfPages.push(pdfSource(msg.svg, outputSize(msg, output), output.unit === 'mm' ? output.dpi : undefined));
             } else {
               const blob = await exportBlob(msg, output, style.bg);
               files.push({ name: `${msg.filename}.${extensionFor(output)}`, blob });

@@ -40,6 +40,8 @@ export interface RenderStyle {
   gradient?: Gradient;
   /** Second colour of the gradient (the first is `fg`). */
   fg2?: string;
+  /** Logo: clear the modules behind it (default) or draw it over them. */
+  logoClear?: boolean;
 }
 
 export interface SvgResult {
@@ -109,7 +111,9 @@ export function renderSvg(grid: SymbolGrid, s: RenderStyle, unitsAttr?: { width:
   const symbolY = frame + q + (hasLabel && s.labelPosition === 'top' ? band : 0);
 
   const box = overlayBox(grid, s.logoDataUrl || s.centerText ? s.overlayRatio : 0);
-  const inBox = box ? (x: number, y: number) => x >= box.x && x < box.x + box.size && y >= box.y && y < box.y + box.size : undefined;
+  // A logo drawn over the modules (logoClear: false) leaves them in place.
+  const clear = !s.logoDataUrl || s.logoClear !== false;
+  const inBox = box && clear ? (x: number, y: number) => x >= box.x && x < box.x + box.size && y >= box.y && y < box.y + box.size : undefined;
 
   const font = escapeXml(s.fontFamily);
   const out: string[] = [];
@@ -142,7 +146,7 @@ export function renderSvg(grid: SymbolGrid, s: RenderStyle, unitsAttr?: { width:
     const cx = bx + box.size / 2;
     const cy = by + box.size / 2;
     if (s.logoDataUrl) {
-      out.push(`<rect x="${bx}" y="${by}" width="${box.size}" height="${box.size}" fill="${bg}"/>`);
+      if (clear) out.push(`<rect x="${bx}" y="${by}" width="${box.size}" height="${box.size}" fill="${bg}"/>`);
       const pad = box.size * 0.08;
       out.push(
         `<image x="${bx + pad}" y="${by + pad}" width="${box.size - pad * 2}" height="${box.size - pad * 2}" href="${s.logoDataUrl}" preserveAspectRatio="xMidYMid meet"/>`,

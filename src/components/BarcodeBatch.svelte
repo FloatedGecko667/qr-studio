@@ -4,7 +4,7 @@
   import { barcodeSize } from '../lib/barcode/settings';
   import type { BarcodeState } from '../lib/barcode/state.svelte';
   import { BATCH_LIMIT, decodeCsv, itemsFromCsv, itemsFromLines, serialLines, type BatchItem, type SerialSpec } from '../lib/batch';
-  import { exportSized, extensionFor, PDF_PX_DPI, svgsToPdf, type PdfSource } from '../lib/compose';
+  import { exportSized, extensionFor, pdfSource, svgsToPdf, type PdfSource } from '../lib/compose';
   import { downloadBlob, zipFiles } from '../lib/export/download';
   import { formatNumber, t } from '../lib/i18n/index.svelte';
   import { fontDataUrl } from '../lib/render/font';
@@ -65,7 +65,7 @@
           const svg = renderBarcodeSvg(r.symbol, style, font);
           const size = barcodeSize(svg, output, r.symbol.kind);
           if (merge) {
-            pdfPages.push({ svg: svg.svg, pxWidth: size.pxWidth, pxHeight: size.pxHeight, dpi: output.unit === 'mm' ? output.dpi : PDF_PX_DPI });
+            pdfPages.push(pdfSource(svg.svg, size, output.unit === 'mm' ? output.dpi : undefined));
           } else {
             const blob = await exportSized(svg.svg, size, output.format, output.unit === 'mm' ? output.dpi : undefined, output.quality, style.bg);
             files.push({ name: `${item.filename}.${extensionFor(output)}`, blob });

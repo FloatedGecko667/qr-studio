@@ -713,4 +713,8 @@ export const en: Record<keyof typeof ja, string> = {
   'autoVerify.ok': '✓ Scan checked (this app\'s reader decodes it)',
   'autoVerify.mismatch': '△ It scans, but the content differs',
   'autoVerify.fail': '✗ Could not be read. Review the module shape, colours, logo size or error correction',
+  'style.logoRemoveBg': 'Make the logo background (the corner colour) transparent',
+  'style.logoClear': 'Clear the modules behind the logo (recommended)',
+  'style.logoClearOff': 'The logo is drawn over the modules. Modules show through transparent parts; hidden ones rely on error correction, so check the scan result.',
+  'output.epsNote': 'EPS (PostScript Level 3): the code is vector, text and logos are images, at the print size. PostScript has no transparency, so translucent parts become opaque or clear.',
 };

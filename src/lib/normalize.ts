@@ -70,6 +70,8 @@ export function normalizeStyle(s: StyleSettings): StyleSettings {
     finderInner: oneOf(s.finderInner, FINDER_SHAPES, 'square'),
     gradient: oneOf(s.gradient, GRADIENTS, 'none'),
     fg2: hex(s.fg2, DEFAULT_STYLE.fg2),
+    logoClear: s.logoClear !== false,
+    logoRemoveBg: s.logoRemoveBg === true,
   };
 }
 
@@ -79,7 +81,7 @@ export function normalizeOutput(s: OutputSettings): OutputSettings {
     modulePx: Math.round(clamp(s.modulePx, LIMITS.modulePx)),
     sizeMm: clamp(s.sizeMm, LIMITS.sizeMm),
     dpi: Math.round(clamp(s.dpi, LIMITS.dpi)),
-    format: oneOf(s.format, ['png', 'jpeg', 'webp', 'svg', 'pdf'] as const, DEFAULT_OUTPUT.format),
+    format: oneOf(s.format, ['png', 'jpeg', 'webp', 'svg', 'pdf', 'eps'] as const, DEFAULT_OUTPUT.format),
     quality: clamp(s.quality, [0.5, 1]),
   };
 }

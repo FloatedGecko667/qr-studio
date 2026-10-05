@@ -106,7 +106,7 @@ export function normalizeBarcodeOutput(o: BarcodeOutput): BarcodeOutput {
     matrixModulePx: Math.round(clamp(o.matrixModulePx, L.matrixModulePx)),
     matrixModuleMm: round(clamp(o.matrixModuleMm, L.moduleMm), 0.001),
     dpi: Math.round(clamp(o.dpi, L.dpi)),
-    format: oneOf(o.format, ['png', 'svg', 'jpeg', 'webp', 'pdf'] as const, 'png'),
+    format: oneOf(o.format, ['png', 'svg', 'jpeg', 'webp', 'pdf', 'eps'] as const, 'png'),
     quality: clamp(o.quality, [0.5, 1]),
   };
 }

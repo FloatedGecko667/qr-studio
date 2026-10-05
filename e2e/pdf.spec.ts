@@ -51,3 +51,27 @@ test('barcode batch: PDF as one file, or a ZIP when unticked', async ({ page }) 
   file = await download;
   expect(file.suggestedFilename()).toMatch(/\.zip$/);
 });
+
+test('EPS: QR and barcode download as print-size EPS', async ({ page }) => {
+  await openApp(page);
+  const card = preview(page);
+  await card.getByRole('button', { name: 'mm' }).click();
+  await card.getByLabel('形式').selectOption('eps');
+  await expect(card.getByText(/EPS（PostScript レベル3）/)).toBeVisible();
+  let download = page.waitForEvent('download');
+  await card.getByRole('button', { name: '保存', exact: true }).click();
+  let file = await download;
+  expect(file.suggestedFilename()).toMatch(/\.eps$/);
+  const eps = await text(file);
+  expect(eps.startsWith('%!PS-Adobe-3.0 EPSF-3.0\n')).toBe(true);
+  // 30 mm = 85.04 pt.
+  expect(eps).toContain('%%HiResBoundingBox: 0 0 85.0394 85.0394');
+
+  await switchMode(page, 'バーコード');
+  await card.getByLabel('形式').selectOption('eps');
+  download = page.waitForEvent('download');
+  await card.getByRole('button', { name: '保存', exact: true }).click();
+  file = await download;
+  // Bars as paths, digits as the masked overlay image.
+  expect(await text(file)).toContain('/ImageType 3');
+});

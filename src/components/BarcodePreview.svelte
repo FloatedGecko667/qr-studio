@@ -242,6 +242,7 @@
           <option value="jpeg">JPEG</option>
           <option value="webp">WebP</option>
           <option value="pdf">PDF</option>
+          <option value="eps">EPS</option>
         </select>
       </label>
       {#if out.unit === 'px'}
@@ -284,6 +285,7 @@
     </div>
 
     {#if out.format === 'pdf'}<p class="muted">{t(out.unit === 'mm' ? 'output.pdfNote' : 'output.pdfNotePx')}</p>{/if}
+    {#if out.format === 'eps'}<p class="muted">{t('output.epsNote')}</p>{/if}
     {#if size && svg}
       <p class="muted">
         {t('output.size', { w: formatNumber(size.pxWidth), h: formatNumber(size.pxHeight) })}

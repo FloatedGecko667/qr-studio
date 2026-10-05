@@ -42,16 +42,29 @@
     presets = await listPresets();
   });
 
-  async function onLogo(e: Event) {
-    const file = (e.currentTarget as HTMLInputElement).files?.[0];
-    logoError = '';
-    if (!file) return;
-    const r = await sanitizeImage(file);
+  /** The file as chosen, kept for this session so the background option can be re-applied. */
+  let logoFile: File | null = null;
+
+  async function loadLogo(file: File) {
+    const r = await sanitizeImage(file, { clearBackground: s.logoRemoveBg });
     if ('error' in r) {
       logoError = t(`style.logo.${r.error}`);
       return;
     }
     app.logoDataUrl = r.dataUrl;
+  }
+
+  async function onLogo(e: Event) {
+    const file = (e.currentTarget as HTMLInputElement).files?.[0];
+    logoError = '';
+    if (!file) return;
+    logoFile = file;
+    await loadLogo(file);
+  }
+
+  async function setRemoveBg(on: boolean) {
+    set('logoRemoveBg', on);
+    if (logoFile) await loadLogo(logoFile);
   }
 
   function set<K extends keyof StyleSettings>(key: K, value: StyleSettings[K]) {
@@ -189,6 +202,15 @@
         <input type="file" accept="image/png,image/jpeg,image/webp" onchange={onLogo} />
       </label>
       {#if logoError}<p class="msg error" role="alert">{logoError}</p>{/if}
+      <label class="check">
+        <input type="checkbox" checked={s.logoRemoveBg} onchange={(e) => setRemoveBg(e.currentTarget.checked)} />
+        {t('style.logoRemoveBg')}
+      </label>
+      <label class="check">
+        <input type="checkbox" checked={s.logoClear} onchange={(e) => set('logoClear', e.currentTarget.checked)} />
+        {t('style.logoClear')}
+      </label>
+      {#if !s.logoClear}<p class="muted">{t('style.logoClearOff')}</p>{/if}
       {#if app.logoDataUrl}
         <div class="row">
           <img src={app.logoDataUrl} alt="" class="thumb" />
