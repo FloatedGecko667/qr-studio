@@ -1,6 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
 const PORT = 4174;
+const CROSS_BROWSER = /(flows|simple|generate|scan-actions)\.spec/;
 
 // Runs against the production build (`npm run build` first), like the deployed PWA.
 export default defineConfig({
@@ -17,8 +18,20 @@ export default defineConfig({
     trace: 'retain-on-failure',
   },
   projects: [
-    { name: 'desktop', testIgnore: /force-dark/, use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 800 } } },
-    { name: 'mobile', testIgnore: /force-dark/, use: { ...devices['Pixel 7'] } },
+    { name: 'desktop', testIgnore: /force-dark|visual/, use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 800 } } },
+    { name: 'mobile', testIgnore: /force-dark|visual/, use: { ...devices['Pixel 7'] } },
+    // Screenshot comparisons, one baseline per platform (font rendering differs between systems).
+    {
+      name: 'visual',
+      testMatch: /visual/,
+      snapshotPathTemplate: '{testDir}/__screenshots__/{arg}-{platform}{ext}',
+      expect: { toHaveScreenshot: { maxDiffPixelRatio: 0.01 } },
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 800 }, deviceScaleFactor: 1 },
+    },
+    // Other engines run the main flows only (generate, save, scan, batch, history, simple view).
+    { name: 'firefox', testMatch: CROSS_BROWSER, use: { ...devices['Desktop Firefox'], viewport: { width: 1280, height: 800 } } },
+    { name: 'webkit', testMatch: CROSS_BROWSER, use: { ...devices['Desktop Safari'], viewport: { width: 1280, height: 800 } } },
+    { name: 'webkit-mobile', testMatch: CROSS_BROWSER, use: { ...devices['iPhone 15'] } },
     // Chrome's "Auto Dark Mode for Web Contents" only runs in the full Chromium build, not the headless shell.
     {
       name: 'force-dark',
