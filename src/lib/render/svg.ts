@@ -1,6 +1,8 @@
 // Builds the single SVG that is used for preview, SVG export and (rasterized) PNG/JPEG/WebP.
 // All user-provided text is XML-escaped; images are passed in as re-encoded data URLs only.
 
+import { finderOrigins, finderPath, shapedModulesPath, type FinderShape, type Gradient, type ModuleShape } from './shapes';
+
 export type Enclosure = 'circle' | 'square' | 'none';
 export type LabelPosition = 'top' | 'bottom';
 
@@ -31,6 +33,13 @@ export interface RenderStyle {
   fontFamily: string;
   /** Optional base64 WOFF2 embedded via @font-face so the SVG is self-contained. */
   fontDataUrl: string | null;
+  /** Design options; unset means square modules, square finders and a plain colour. */
+  moduleShape?: ModuleShape;
+  finderOuter?: FinderShape;
+  finderInner?: FinderShape;
+  gradient?: Gradient;
+  /** Second colour of the gradient (the first is `fg`). */
+  fg2?: string;
 }
 
 export interface SvgResult {
@@ -125,7 +134,7 @@ export function renderSvg(grid: SymbolGrid, s: RenderStyle, unitsAttr?: { width:
   } else if (!s.transparent) {
     out.push(`<rect width="${widthUnits}" height="${heightUnits}" fill="${bg}"/>`);
   }
-  out.push(`<path fill="${fg}" d="${modulesPath(grid, symbolX, symbolY, inBox)}"/>`);
+  out.push(...codeElements(grid, s, fg, symbolX, symbolY, inBox));
 
   if (box) {
     const bx = symbolX + box.x;
@@ -158,6 +167,60 @@ export function renderSvg(grid: SymbolGrid, s: RenderStyle, unitsAttr?: { width:
   }
   out.push('</svg>');
   return { svg: out.join(''), widthUnits, heightUnits };
+}
+
+/**
+ * Gradient ids are derived from the gradient itself: several SVGs share one document (preview,
+ * thumbnails), and a url(#id) resolves to the first element with that id in the whole page.
+ */
+function gradientId(def: string): string {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < def.length; i++) h = Math.imul(h ^ def.charCodeAt(i), 0x01000193);
+  return `qr-fg-${(h >>> 0).toString(36)}`;
+}
+
+/** Modules and finder patterns, in the chosen shapes and colour (or gradient). */
+function codeElements(
+  grid: SymbolGrid,
+  s: RenderStyle,
+  fg: string,
+  x0: number,
+  y0: number,
+  skipOverlay: ((x: number, y: number) => boolean) | undefined,
+): string[] {
+  const shape = s.moduleShape ?? 'square';
+  // Micro QR and rMQR have a single finder pattern; readers need it square (tested with zxing-cpp).
+  const single = finderOrigins(grid).length === 1;
+  const outer = single ? 'square' : (s.finderOuter ?? 'square');
+  const inner = single ? 'square' : (s.finderInner ?? 'square');
+  const gradient = s.gradient ?? 'none';
+  if (shape === 'square' && outer === 'square' && inner === 'square' && gradient === 'none') {
+    return [`<path fill="${fg}" d="${modulesPath(grid, x0, y0, skipOverlay)}"/>`];
+  }
+  const out: string[] = [];
+  let fill = fg;
+  if (gradient !== 'none') {
+    const fg2 = safeColor(s.fg2 ?? fg, fg);
+    const stops = `<stop offset="0" stop-color="${fg}"/><stop offset="1" stop-color="${fg2}"/>`;
+    const [cx, cy] = [x0 + grid.width / 2, y0 + grid.height / 2];
+    const attrs =
+      gradient === 'linear'
+        ? `gradientUnits="userSpaceOnUse" x1="${x0}" y1="${y0}" x2="${x0 + grid.width}" y2="${y0 + grid.height}"`
+        : `gradientUnits="userSpaceOnUse" cx="${cx}" cy="${cy}" r="${Math.round(Math.hypot(grid.width, grid.height) * 500) / 1000}"`;
+    const tag = gradient === 'linear' ? 'linearGradient' : 'radialGradient';
+    const id = gradientId(tag + attrs + stops);
+    out.push(`<defs><${tag} id="${id}" ${attrs}>${stops}</${tag}></defs>`);
+    fill = `url(#${id})`;
+  }
+  const finders = outer === 'square' && inner === 'square' && shape === 'square' ? [] : finderOrigins(grid);
+  const inFinder = (x: number, y: number) => finders.some((f) => x >= f.x && x < f.x + 7 && y >= f.y && y < f.y + 7);
+  const skip = (x: number, y: number) => inFinder(x, y) || !!skipOverlay?.(x, y);
+  const d = shape === 'square' ? modulesPath(grid, x0, y0, skip) : shapedModulesPath(grid, x0, y0, shape, skip);
+  out.push(`<path fill="${fill}" d="${d}"/>`);
+  if (finders.length) {
+    out.push(`<path fill="${fill}" fill-rule="evenodd" d="${finders.map((f) => finderPath(x0 + f.x, y0 + f.y, outer, inner)).join('')}"/>`);
+  }
+  return out;
 }
 
 function roundedRect(w: number, h: number, radius: number): string {

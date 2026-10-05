@@ -1,5 +1,5 @@
 import { zlibSync } from 'fflate';
-import type { Shape } from './vector';
+import { isGradient, type GradientFill, type Shape } from './vector';
 
 export interface PdfImage {
   width: number;
@@ -60,9 +60,24 @@ export function imagesToPdf(pages: readonly { image: PdfImage; widthPt: number; 
 }
 
 /** PDF path operators for shapes drawn in SVG coordinates (the caller sets up the y flip). */
-export function vectorContent(shapes: readonly Shape[], alphaName: (a: number) => string): string {
+export function vectorContent(shapes: readonly Shape[], alphaName: (a: number) => string, shadingName: (g: GradientFill) => string = () => ''): string {
   const ops: string[] = [];
+  const path = (sh: Shape) => {
+    for (const seg of sh.segments) {
+      if (seg.op === 'M') ops.push(`${num(seg.x)} ${num(seg.y)} m`);
+      else if (seg.op === 'L') ops.push(`${num(seg.x)} ${num(seg.y)} l`);
+      else if (seg.op === 'C') ops.push(`${num(seg.x1)} ${num(seg.y1)} ${num(seg.x2)} ${num(seg.y2)} ${num(seg.x)} ${num(seg.y)} c`);
+      else ops.push('h');
+    }
+  };
   for (const sh of shapes) {
+    if (isGradient(sh.fill)) {
+      // Clip to the shape and paint the shading in the same (SVG) coordinates.
+      ops.push('q');
+      path(sh);
+      ops.push(sh.evenOdd ? 'W* n' : 'W n', `/${shadingName(sh.fill)} sh`, 'Q');
+      continue;
+    }
     const fill = sh.fill && sh.fill.a > 0 ? sh.fill : null;
     const stroke = sh.stroke && sh.stroke.color.a > 0 ? sh.stroke : null;
     if (!fill && !stroke) continue;
@@ -73,15 +88,18 @@ export function vectorContent(shapes: readonly Shape[], alphaName: (a: number) =
     const alpha = Math.min(fill?.a ?? 1, stroke?.color.a ?? 1);
     if (alpha < 1) state.push(`/${alphaName(alpha)} gs`);
     ops.push(state.join(' '));
-    for (const seg of sh.segments) {
-      if (seg.op === 'M') ops.push(`${num(seg.x)} ${num(seg.y)} m`);
-      else if (seg.op === 'L') ops.push(`${num(seg.x)} ${num(seg.y)} l`);
-      else if (seg.op === 'C') ops.push(`${num(seg.x1)} ${num(seg.y1)} ${num(seg.x2)} ${num(seg.y2)} ${num(seg.x)} ${num(seg.y)} c`);
-      else ops.push('h');
-    }
+    path(sh);
     ops.push(fill && stroke ? (sh.evenOdd ? 'B*' : 'B') : fill ? (sh.evenOdd ? 'f*' : 'f') : 'S', 'Q');
   }
   return ops.join('\n');
+}
+
+/** PDF shading dictionary (axial or radial, two colours) for a gradient. */
+export function shadingDict(g: GradientFill): string {
+  const c = (x: { r: number; g: number; b: number }) => `[${num(x.r)} ${num(x.g)} ${num(x.b)}]`;
+  const fn = `<< /FunctionType 2 /Domain [0 1] /C0 ${c(g.from)} /C1 ${c(g.to)} /N 1 >>`;
+  const coords = g.type === 'linear' ? `/ShadingType 2 /Coords [${num(g.x1)} ${num(g.y1)} ${num(g.x2)} ${num(g.y2)}]` : `/ShadingType 3 /Coords [${num(g.cx)} ${num(g.cy)} 0 ${num(g.cx)} ${num(g.cy)} ${num(g.r)}]`;
+  return `<< ${coords} /ColorSpace /DeviceRGB /Function ${fn} /Extend [true true] >>`;
 }
 
 export function writePdf(pages: readonly PdfPage[]): Uint8Array {
@@ -150,17 +168,26 @@ export function writePdf(pages: readonly PdfPage[]): Uint8Array {
       ops.push(`q ${w} 0 0 ${h} 0 0 cm /Im0 Do Q`);
     }
     const alphas = new Map<string, number>();
+    const shadings: string[] = [];
     if (p.vector && p.vector.width > 0 && p.vector.height > 0) {
       const sx = p.widthPt / p.vector.width;
       const sy = p.heightPt / p.vector.height;
       // SVG y grows downwards: flip once, then draw in SVG units.
       ops.push(`q ${num(sx)} 0 0 ${num(-sy)} 0 ${h} cm`);
       ops.push(
-        vectorContent(p.vector.shapes, (a) => {
-          const key = num(a);
-          if (!alphas.has(key)) alphas.set(key, alphas.size);
-          return `GA${alphas.get(key)}`;
-        }),
+        vectorContent(
+          p.vector.shapes,
+          (a) => {
+            const key = num(a);
+            if (!alphas.has(key)) alphas.set(key, alphas.size);
+            return `GA${alphas.get(key)}`;
+          },
+          (g) => {
+            const dict = shadingDict(g);
+            if (!shadings.includes(dict)) shadings.push(dict);
+            return `Sh${shadings.indexOf(dict)}`;
+          },
+        ),
       );
       ops.push('Q');
     }
@@ -169,7 +196,8 @@ export function writePdf(pages: readonly PdfPage[]): Uint8Array {
       ops.push(`q ${w} 0 0 ${h} 0 0 cm /Im1 Do Q`);
     }
     const gs = [...alphas].map(([a, n]) => `/GA${n} << /Type /ExtGState /ca ${a} /CA ${a} >>`).join(' ');
-    const resources = `<< ${xobjects.length ? `/XObject << ${xobjects.join(' ')} >>` : ''}${gs ? ` /ExtGState << ${gs} >>` : ''} >>`;
+    const sh = shadings.map((d, i) => `/Sh${i} ${d}`).join(' ');
+    const resources = `<< ${xobjects.length ? `/XObject << ${xobjects.join(' ')} >>` : ''}${gs ? ` /ExtGState << ${gs} >>` : ''}${sh ? ` /Shading << ${sh} >>` : ''} >>`;
     object(pageIds[i], `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${w} ${h}] /Resources ${resources} /Contents ${contentIds[i]} 0 R >>`);
     const content = zlibSync(encoder.encode(ops.join('\n')), { level: 9 });
     object(contentIds[i], `<< /Length ${content.length} /Filter /FlateDecode >>`, content);

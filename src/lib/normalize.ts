@@ -1,3 +1,4 @@
+import { FINDER_SHAPES, GRADIENTS, MODULE_SHAPES } from './render/shapes';
 import { ecLevelsFor, versionsFor, type EcLevel, type SymbolType } from './encoder/symbols';
 import {
   DEFAULT_OUTPUT,
@@ -64,6 +65,11 @@ export function normalizeStyle(s: StyleSettings): StyleSettings {
     frameColor: hex(s.frameColor, DEFAULT_STYLE.frameColor),
     frameRadius: clamp(s.frameRadius, LIMITS.frameRadius),
     embedFont: s.embedFont !== false,
+    moduleShape: oneOf(s.moduleShape, MODULE_SHAPES, 'square'),
+    finderOuter: oneOf(s.finderOuter, FINDER_SHAPES, 'square'),
+    finderInner: oneOf(s.finderInner, FINDER_SHAPES, 'square'),
+    gradient: oneOf(s.gradient, GRADIENTS, 'none'),
+    fg2: hex(s.fg2, DEFAULT_STYLE.fg2),
   };
 }
 

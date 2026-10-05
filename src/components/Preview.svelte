@@ -219,6 +219,34 @@
     return text === p.text;
   }
 
+  // Automatic check: shortly after the code changes, decode it in a worker (shapes, colours and
+  // logos can make a code unreadable; this says so without the user asking).
+  const AUTO_DELAY_MS = 600;
+  let auto: { key: string; state: 'running' | 'ok' | 'mismatch' | 'fail' | 'error' } | null = $state(null);
+  $effect(() => {
+    const key = verifyKey;
+    const first = svgs[0];
+    if (!first) {
+      auto = null;
+      return;
+    }
+    const timer = setTimeout(async () => {
+      auto = { key, state: 'running' };
+      try {
+        const [{ canvasImageData, QR_FORMATS }, { decodeInWorker }] = await Promise.all([import('../lib/verify'), import('../lib/autoVerify')]);
+        const scale = Math.max(2, Math.ceil(600 / first.widthUnits));
+        const canvas = await svgToCanvas(first.svg, first.widthUnits * scale, first.heightUnits * scale, '#ffffff');
+        const r = await decodeInWorker(canvasImageData(canvas), QR_FORMATS);
+        if (auto?.key !== key) return;
+        const [hit] = r.results;
+        auto = { key, state: r.error ? 'error' : !hit ? 'fail' : matches(hit.text, hit.bytes) ? 'ok' : 'mismatch' };
+      } catch {
+        if (auto?.key === key) auto = { key, state: 'error' };
+      }
+    }, AUTO_DELAY_MS);
+    return () => clearTimeout(timer);
+  });
+
   function applySuggestion(s: Suggestion) {
     if (s.type === 'version') app.updateSymbol({ version: s.version });
     else if (s.type === 'ecLevel') app.updateSymbol({ ecLevel: s.ecLevel, version: 'auto' });
@@ -269,6 +297,13 @@
           total: formatNumber(sym.spec.dataBits),
           percent: Math.round((sym.usedBits / sym.spec.dataBits) * 100),
         })}
+      {/if}
+    </p>
+    <p class="auto" role="status" aria-live="polite">
+      {#if auto?.key === verifyKey && auto.state !== 'running' && auto.state !== 'error'}
+        <span class={`auto-${auto.state}`}>{t(`autoVerify.${auto.state}`)}</span>
+      {:else}
+        <span class="muted">{t('autoVerify.running')}</span>
       {/if}
     </p>
   {:else if pipe.status === 'too-long'}
@@ -399,6 +434,19 @@
 <style>
   p {
     margin: 0;
+  }
+  .auto {
+    font-size: 13px;
+    font-weight: 600;
+  }
+  .auto-ok {
+    color: var(--ok);
+  }
+  .auto-mismatch {
+    color: var(--warn);
+  }
+  .auto-fail {
+    color: var(--error);
   }
   /* Simple view: large, easy targets for the main actions. */
   .row.big :global(.btn) {

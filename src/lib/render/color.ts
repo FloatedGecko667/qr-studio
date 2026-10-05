@@ -27,13 +27,19 @@ export function contrastRatio(a: string, b: string): number {
 
 export type ColorIssue = 'lowContrast' | 'inverted';
 
-/** Readers expect dark modules on a light background with clear contrast. */
-export function colorIssues(fg: string, bg: string, transparent: boolean): ColorIssue[] {
-  const issues: ColorIssue[] = [];
-  const f = parseHex(fg);
-  const b = parseHex(transparent ? '#ffffff' : bg);
-  if (!f || !b) return issues;
-  if (contrastRatio(fg, transparent ? '#ffffff' : bg) < 4) issues.push('lowContrast');
-  if (luminance(f) > luminance(b)) issues.push('inverted');
-  return issues;
+/**
+ * Readers expect dark modules on a light background with clear contrast. With a gradient every
+ * module colour must pass, so each of `fg` is checked (the worst one decides).
+ */
+export function colorIssues(fg: string | readonly string[], bg: string, transparent: boolean): ColorIssue[] {
+  const issues = new Set<ColorIssue>();
+  const back = transparent ? '#ffffff' : bg;
+  const b = parseHex(back);
+  for (const c of typeof fg === 'string' ? [fg] : fg) {
+    const f = parseHex(c);
+    if (!f || !b) continue;
+    if (contrastRatio(c, back) < 4) issues.add('lowContrast');
+    if (luminance(f) > luminance(b)) issues.add('inverted');
+  }
+  return [...issues];
 }

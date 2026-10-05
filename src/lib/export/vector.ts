@@ -18,9 +18,14 @@ export type Segment =
   | { op: 'C'; x1: number; y1: number; x2: number; y2: number; x: number; y: number }
   | { op: 'Z' };
 
+/** Two-stop gradient in SVG user space (gradientUnits="userSpaceOnUse"), as the renderer writes it. */
+export type GradientFill =
+  | { type: 'linear'; x1: number; y1: number; x2: number; y2: number; from: Rgba; to: Rgba }
+  | { type: 'radial'; cx: number; cy: number; r: number; from: Rgba; to: Rgba };
+
 export interface Shape {
   segments: Segment[];
-  fill: Rgba | null;
+  fill: Rgba | GradientFill | null;
   evenOdd: boolean;
   stroke: { color: Rgba; width: number } | null;
 }
@@ -45,7 +50,7 @@ export function parseColor(value: string | undefined): Rgba | null {
 
 function attrs(tag: string): Record<string, string> {
   const out: Record<string, string> = {};
-  for (const m of tag.matchAll(/([a-zA-Z:-]+)="([^"]*)"/g)) out[m[1]] = m[2];
+  for (const m of tag.matchAll(/([a-zA-Z][\w:-]*)="([^"]*)"/g)) out[m[1]] = m[2];
   return out;
 }
 
@@ -220,6 +225,7 @@ export function vectorizeSvg(svg: string): VectorSvg {
   const height = vb[3] || num(root.height);
   const body = svg.slice(open[0].length, -'</svg>'.length);
 
+  const gradients = parseGradients(body);
   const shapes: Shape[] = [];
   const rest: string[] = [];
   let hasVisibleRest = false;
@@ -232,7 +238,8 @@ export function vectorizeSvg(svg: string): VectorSvg {
     const selfClosing = m[2] === '/>';
     const segments =
       selfClosing && tag === 'rect' && !a.rx ? rectSegments(a) : selfClosing && tag === 'path' ? parsePath(a.d ?? '') : selfClosing && tag === 'circle' ? circleSegments(a) : null;
-    const fill = a.fill === undefined ? parseColor('#000000') : parseColor(a.fill);
+    const ref = /^url\(#([\w-]+)\)$/.exec(a.fill ?? '');
+    const fill = a.fill === undefined ? parseColor('#000000') : ref ? (gradients.get(ref[1]) ?? null) : parseColor(a.fill);
     const strokeColor = parseColor(a.stroke);
     const fillOk = a.fill === undefined || a.fill === 'none' || fill !== null;
     const strokeOk = a.stroke === undefined || a.stroke === 'none' || strokeColor !== null;
@@ -247,9 +254,32 @@ export function vectorizeSvg(svg: string): VectorSvg {
       }
       continue;
     }
+    // Gradients are read above; they need not go to the overlay.
+    if (tag === 'defs') continue;
     rest.push(el);
-    if (tag !== 'style' && tag !== 'defs') hasVisibleRest = true;
+    if (tag !== 'style') hasVisibleRest = true;
   }
   const overlay = hasVisibleRest ? `${open[0]}${rest.join('')}</svg>` : null;
   return { width, height, shapes, overlay };
 }
+
+/** Two-stop linear and radial gradients defined in <defs>, by id. */
+function parseGradients(body: string): Map<string, GradientFill> {
+  const out = new Map<string, GradientFill>();
+  for (const m of body.matchAll(/<(linearGradient|radialGradient)\b([^>]*)>([\s\S]*?)<\/\1>/g)) {
+    const a = attrs(m[2]);
+    if (!a.id || a.gradientUnits !== 'userSpaceOnUse') continue;
+    const stops = [...m[3].matchAll(/<stop\b[^>]*\/>/g)].map((x) => parseColor(attrs(x[0])['stop-color']));
+    if (stops.length !== 2 || !stops[0] || !stops[1]) continue;
+    const [from, to] = stops as [Rgba, Rgba];
+    out.set(
+      a.id,
+      m[1] === 'linearGradient'
+        ? { type: 'linear', x1: num(a.x1), y1: num(a.y1), x2: num(a.x2), y2: num(a.y2), from, to }
+        : { type: 'radial', cx: num(a.cx), cy: num(a.cy), r: num(a.r), from, to },
+    );
+  }
+  return out;
+}
+
+export const isGradient = (f: Rgba | GradientFill | null): f is GradientFill => !!f && 'type' in f;

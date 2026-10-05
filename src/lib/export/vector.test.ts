@@ -1,10 +1,7 @@
-import { execFileSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { readBarcodesFromImageData } from 'zxing-wasm/reader';
 import '../../test/decode';
+import { ghostscript, hasGs } from '../../test/ghostscript';
 import { encodeBarcode } from '../barcode';
 import { renderBarcodeSvg } from '../barcode/render';
 import { DEFAULT_BARCODE_STYLE } from '../barcode/settings';
@@ -12,7 +9,7 @@ import { DEFAULT_BARCODE_OPTIONS } from '../barcode/types';
 import { encode, prepareText } from '../encoder';
 import { renderSvg, type RenderStyle } from '../render/svg';
 import { writePdf } from './pdf';
-import { parseColor, parsePath, vectorizeSvg, type Segment } from './vector';
+import { parseColor, parsePath, vectorizeSvg, type Rgba, type Segment } from './vector';
 
 const STYLE: RenderStyle = {
   quietZone: 4,
@@ -80,7 +77,7 @@ describe('vectorizeSvg', () => {
     const v = vectorizeSvg(renderSvg(qr('hello'), STYLE).svg);
     expect(v.shapes).toHaveLength(2);
     expect(v.shapes[0].fill).toEqual({ r: 1, g: 1, b: 1, a: 1 });
-    expect(v.shapes[1].fill?.r).toBeCloseTo(0x11 / 255);
+    expect((v.shapes[1].fill as Rgba).r).toBeCloseTo(0x11 / 255);
     expect(v.overlay).toBeNull();
   });
 
@@ -93,40 +90,6 @@ describe('vectorizeSvg', () => {
     expect(v.overlay).not.toContain('<path');
   });
 });
-
-/** Renders page 1 of a PDF with Ghostscript to 8-bit grey, as RGBA ImageData. */
-function ghostscript(pdf: Uint8Array, dpi: number): ImageData {
-  const dir = mkdtempSync(join(tmpdir(), 'qr-pdf-'));
-  writeFileSync(join(dir, 'in.pdf'), pdf);
-  execFileSync('gs', ['-q', '-dSAFER', '-dBATCH', '-dNOPAUSE', '-sDEVICE=pgmraw', `-r${dpi}`, `-sOutputFile=${join(dir, 'out.pgm')}`, join(dir, 'in.pdf')]);
-  const pgm = readFileSync(join(dir, 'out.pgm'));
-  // Header: "P5", width, height, maxval, separated by whitespace; "#" starts a comment line.
-  const fields: string[] = [];
-  let at = 0;
-  while (fields.length < 4) {
-    while (/\s/.test(String.fromCharCode(pgm[at]))) at++;
-    if (pgm[at] === 0x23) {
-      while (pgm[at] !== 0x0a) at++;
-      continue;
-    }
-    const start = at;
-    while (!/\s/.test(String.fromCharCode(pgm[at]))) at++;
-    fields.push(pgm.subarray(start, at).toString('latin1'));
-  }
-  const [w, h] = [Number(fields[1]), Number(fields[2])];
-  const grey = pgm.subarray(at + 1);
-  const data = new Uint8ClampedArray(w * h * 4);
-  for (let i = 0; i < w * h; i++) data.set([grey[i], grey[i], grey[i], 255], i * 4);
-  return { data, width: w, height: h, colorSpace: 'srgb' } as ImageData;
-}
-
-let hasGs = false;
-try {
-  execFileSync('gs', ['--version']);
-  hasGs = true;
-} catch {
-  hasGs = false;
-}
 
 describe.skipIf(!hasGs)('vector PDF read back through Ghostscript and zxing-cpp', () => {
   it('QR code', async () => {

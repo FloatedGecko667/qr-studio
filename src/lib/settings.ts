@@ -1,3 +1,4 @@
+import type { FinderShape, Gradient, ModuleShape } from './render/shapes';
 import type { EcLevel, SymbolType } from './encoder';
 import type { Enclosure, LabelPosition } from './render/svg';
 import type { OutputFormat } from './render/raster';
@@ -32,6 +33,12 @@ export interface StyleSettings {
   frameColor: string;
   frameRadius: number;
   embedFont: boolean;
+  moduleShape: ModuleShape;
+  finderOuter: FinderShape;
+  finderInner: FinderShape;
+  gradient: Gradient;
+  /** Second colour of the gradient. */
+  fg2: string;
 }
 
 export interface OutputSettings {
@@ -91,6 +98,11 @@ export const DEFAULT_STYLE: StyleSettings = {
   frameColor: '#000000',
   frameRadius: 2,
   embedFont: true,
+  moduleShape: 'square',
+  finderOuter: 'square',
+  finderInner: 'square',
+  gradient: 'none',
+  fg2: '#2657d9',
 };
 
 export const DEFAULT_OUTPUT: OutputSettings = {

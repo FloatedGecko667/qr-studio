@@ -4,18 +4,32 @@
   import { t } from '../lib/i18n/index.svelte';
   import { colorIssues } from '../lib/render/color';
   import { sanitizeImage } from '../lib/render/image';
-  import { overlayCoverage } from '../lib/render/svg';
+  import { overlayCoverage, renderSvg } from '../lib/render/svg';
+  import { renderStyle } from '../lib/compose';
+  import { encode, prepareText } from '../lib/encoder';
+  import { DESIGN_TEMPLATES, type DesignTemplate } from '../lib/render/designs';
+  import { FINDER_SHAPES, GRADIENTS, MODULE_SHAPES, type FinderShape, type Gradient, type ModuleShape } from '../lib/render/shapes';
   import { normalizeStyle } from '../lib/normalize';
-  import { LIMITS, type StyleSettings } from '../lib/settings';
+  import { DEFAULT_STYLE, LIMITS, type StyleSettings } from '../lib/settings';
   import { deletePreset, listPresets, newId, PRESET_LIMIT, savePreset, type Preset } from '../lib/storage/records';
 
   const s = $derived(app.settings.style);
   const ec = $derived(app.settings.symbol.ecLevel);
-  const issues = $derived(colorIssues(s.fg, s.bg, s.transparent));
+  const issues = $derived(colorIssues(s.gradient === 'none' ? [s.fg] : [s.fg, s.fg2], s.bg, s.transparent));
   let logoError = $state('');
   let presets: Preset[] = $state([]);
   let presetName = $state('');
   let presetMessage = $state('');
+
+  // Thumbnails: one small sample code drawn in each template's style.
+  const SAMPLE = encode(prepareText('QR').units, { type: 'model2', ecLevel: 'L', version: 1, mask: 'auto' }).symbols[0];
+  const thumbs: Record<string, string> = Object.fromEntries(
+    DESIGN_TEMPLATES.map((d) => [d.id, renderSvg(SAMPLE, renderStyle({ ...DEFAULT_STYLE, ...d.style, quietZone: 1 }, null, null)).svg]),
+  );
+
+  function applyDesign(d: DesignTemplate) {
+    app.updateStyle(d.style);
+  }
 
   const COVERAGE_LIMIT = { L: 5, M: 10, Q: 15, H: 20 } as const;
   const coverage = $derived.by(() => {
@@ -91,6 +105,52 @@
   {#each issues as issue (issue)}
     <p class="msg warn">{t(`style.${issue}`)}</p>
   {/each}
+
+  <h3>{t('design.title')}</h3>
+  <div class="templates" role="group" aria-label={t('design.templates')}>
+    {#each DESIGN_TEMPLATES as d (d.id)}
+      <button type="button" class="tpl" onclick={() => applyDesign(d)} aria-label={t('design.apply', { name: t(`design.tpl.${d.id}`) })}>
+        <!-- Rendered by renderSvg from a fixed sample and a built-in style. -->
+        <span class="tpl-img" aria-hidden="true">{@html thumbs[d.id]}</span>
+        <span class="tpl-name">{t(`design.tpl.${d.id}`)}</span>
+      </button>
+    {/each}
+  </div>
+  <div class="grid2">
+    <label class="field">
+      <span>{t('design.moduleShape')}</span>
+      <select value={s.moduleShape} onchange={(e) => set('moduleShape', e.currentTarget.value as ModuleShape)}>
+        {#each MODULE_SHAPES as m (m)}<option value={m}>{t(`design.shape.${m}`)}</option>{/each}
+      </select>
+    </label>
+    <label class="field">
+      <span>{t('design.gradient')}</span>
+      <select value={s.gradient} onchange={(e) => set('gradient', e.currentTarget.value as Gradient)}>
+        {#each GRADIENTS as g (g)}<option value={g}>{t(`design.gradient.${g}`)}</option>{/each}
+      </select>
+    </label>
+    <label class="field">
+      <span>{t('design.finderOuter')}</span>
+      <select value={s.finderOuter} onchange={(e) => set('finderOuter', e.currentTarget.value as FinderShape)}>
+        {#each FINDER_SHAPES as f (f)}<option value={f}>{t(`design.finder.${f}`)}</option>{/each}
+      </select>
+    </label>
+    <label class="field">
+      <span>{t('design.finderInner')}</span>
+      <select value={s.finderInner} onchange={(e) => set('finderInner', e.currentTarget.value as FinderShape)}>
+        {#each FINDER_SHAPES as f (f)}<option value={f}>{t(`design.finder.${f}`)}</option>{/each}
+      </select>
+    </label>
+    {#if s.gradient !== 'none'}
+      <label class="field">
+        <span>{t('design.fg2')}</span>
+        <input type="color" value={s.fg2} oninput={(e) => set('fg2', e.currentTarget.value)} />
+      </label>
+    {/if}
+  </div>
+  {#if app.settings.symbol.type !== 'model2' && (s.finderOuter !== 'square' || s.finderInner !== 'square')}
+    <p class="muted">{t('design.singleFinder')}</p>
+  {/if}
 
   <h3>{t('style.overlay')}</h3>
   <div class="segmented" role="group" aria-label={t('style.overlay')}>
@@ -232,6 +292,37 @@
     border: 1px solid var(--border);
     border-radius: 6px;
     background: var(--surface-2);
+  }
+  .templates {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(76px, 1fr));
+    gap: 8px;
+  }
+  .tpl {
+    display: grid;
+    gap: 4px;
+    justify-items: center;
+    padding: 6px 4px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface);
+    cursor: pointer;
+    font-size: 11px;
+  }
+  .tpl:hover {
+    border-color: var(--accent);
+  }
+  .tpl-img {
+    width: 52px;
+    line-height: 0;
+  }
+  .tpl-img :global(svg) {
+    width: 100%;
+    height: auto;
+  }
+  .tpl-name {
+    text-align: center;
+    line-height: 1.2;
   }
   details summary {
     cursor: pointer;

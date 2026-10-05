@@ -24,6 +24,11 @@ export function renderStyle(style: StyleSettings, logoDataUrl: string | null, fo
     frameRadius: style.frameRadius,
     fontFamily: FONT_FAMILY,
     fontDataUrl,
+    moduleShape: style.moduleShape,
+    finderOuter: style.finderOuter,
+    finderInner: style.finderInner,
+    gradient: style.gradient,
+    fg2: style.fg2,
   };
 }
 
