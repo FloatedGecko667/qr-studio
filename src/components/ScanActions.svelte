@@ -2,6 +2,7 @@
   import { app } from '../lib/app.svelte';
   import { copyText, downloadBlob } from '../lib/export/download';
   import { t } from '../lib/i18n/index.svelte';
+  import { AI_NAMES, gs1Date } from '../lib/payload/gs1';
   import { eventToIcs, icalToDate, links, parseScanned } from '../lib/payload/parse';
   import { newId } from '../lib/storage/records';
 
@@ -68,6 +69,16 @@
   <div class="row">
     <a class="btn small" href={scanned.url} target="_blank" rel="noopener noreferrer">{t('scan.open')}</a>
   </div>
+  {#if scanned.gs1}
+    <section class="actions stack" aria-labelledby="scan-gs1">
+      <h3 id="scan-gs1">{t('scanAction.gs1')}</h3>
+      <dl>
+        {#each scanned.gs1 as [ai, value], i (i)}
+          {@render item(`gs1-${i}`, `(${ai}) ${AI_NAMES.has(ai) ? t(`gs1ai.${ai}`) : t('gs1ai.other', { ai })}`, gs1Date(ai, value) ?? value)}
+        {/each}
+      </dl>
+    </section>
+  {/if}
 {:else if scanned.kind !== 'text'}
   <section class="actions stack" aria-labelledby="scan-kind">
     <h3 id="scan-kind">{t(`scanAction.kind.${scanned.kind}`)}</h3>

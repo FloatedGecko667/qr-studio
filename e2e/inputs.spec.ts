@@ -45,3 +45,16 @@ test('event: a time zone turns the times into UTC', async ({ page }) => {
   await readBack(page);
   await expect(page.locator('pre')).toContainText('DTSTART:20261005T010000Z', { timeout: 20_000 });
 });
+
+test('GS1 Digital Link: builds the URL and shows its data when scanned', async ({ page }) => {
+  await openApp(page);
+  await kind(page, 'GS1 Digital Link');
+  await page.getByLabel(/AI付き文字列/).fill('(01)04912345123459(10)LOT1(17)271231');
+  await readBack(page);
+  await expect(page.locator('pre')).toHaveText('https://id.gs1.org/01/04912345123459/10/LOT1?17=271231', { timeout: 20_000 });
+  const data = page.getByRole('region', { name: 'GS1 Digital Link の内容' });
+  await expect(data.getByText('(01) GTIN（商品コード）')).toBeVisible();
+  await expect(data.getByText('LOT1')).toBeVisible();
+  await expect(data.getByText('2027-12-31')).toBeVisible();
+  await expect(page.getByRole('link', { name: '開く' })).toHaveAttribute('href', 'https://id.gs1.org/01/04912345123459/10/LOT1?17=271231');
+});

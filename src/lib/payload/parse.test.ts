@@ -82,7 +82,7 @@ describe('parseScanned: round trips with the generators', () => {
 
 describe('parseScanned: other inputs', () => {
   it('recognises URLs and falls back to text', () => {
-    expect(parseScanned('https://example.com/a?b=1')).toEqual({ kind: 'url', url: 'https://example.com/a?b=1' });
+    expect(parseScanned('https://example.com/a?b=1')).toEqual({ kind: 'url', url: 'https://example.com/a?b=1', gs1: null });
     expect(parseScanned('hello')).toEqual({ kind: 'text' });
     expect(parseScanned('javascript:alert(1)')).toEqual({ kind: 'text' });
   });

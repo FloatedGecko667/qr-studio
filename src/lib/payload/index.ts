@@ -1,6 +1,8 @@
 // Builders that turn form fields into the string (or bytes) stored in the symbol.
 // Each builder returns i18n message keys for problems instead of display text.
 
+import { buildDigitalLink, parseAiString, validCheckDigit } from './gs1';
+
 export type PayloadKind =
   | 'url'
   | 'text'
@@ -14,6 +16,7 @@ export type PayloadKind =
   | 'geo'
   | 'event'
   | 'gs1'
+  | 'gs1dl'
   | 'image'
   | 'binary';
 
@@ -30,6 +33,7 @@ export const PAYLOAD_KINDS: readonly PayloadKind[] = [
   'geo',
   'event',
   'gs1',
+  'gs1dl',
   'image',
   'binary',
 ];
@@ -318,21 +322,13 @@ const GS1_PREDEFINED = new Set([
 
 /** Parses "(01)04912345123459(10)ABC" into a GS1 element string with GS separators. */
 export function buildGs1(f: { value: string }): Payload {
-  const src = f.value.replace(/\s+/g, '');
-  if (!src) return fail('payload.required');
-  const re = /\((\d{2,4})\)([^()]+)/gy;
-  const parts: [string, string][] = [];
-  let m: RegExpExecArray | null;
-  let consumed = 0;
-  while ((m = re.exec(src))) {
-    parts.push([m[1], m[2]]);
-    consumed = re.lastIndex;
-  }
-  if (parts.length === 0 || consumed !== src.length) return fail('payload.gs1.syntax');
+  if (!f.value.trim()) return fail('payload.required');
+  const parts = parseAiString(f.value);
+  if (!parts) return fail('payload.gs1.syntax');
   const warnings: string[] = [];
   let out = '';
   parts.forEach(([ai, value], i) => {
-    if (ai === '01' && (value.length !== 14 || !/^\d+$/.test(value) || !validGtinCheckDigit(value))) {
+    if (ai === '01' && (value.length !== 14 || !/^\d+$/.test(value) || !validCheckDigit(value))) {
       warnings.push('payload.gs1.checkDigit');
     }
     out += ai + value;
@@ -341,12 +337,16 @@ export function buildGs1(f: { value: string }): Payload {
   return { text: out, fnc1: true, errors: [], warnings };
 }
 
-export function validGtinCheckDigit(digits: string): boolean {
-  let sum = 0;
-  const body = digits.slice(0, -1);
-  for (let i = 0; i < body.length; i++) sum += Number(body[body.length - 1 - i]) * (i % 2 === 0 ? 3 : 1);
-  return (10 - (sum % 10)) % 10 === Number(digits[digits.length - 1]);
+/** The same GS1 data as a GS1 Digital Link URL, readable by any phone camera. */
+export function buildGs1DigitalLink(f: { value: string; domain: string }): Payload {
+  if (!f.value.trim()) return fail('payload.required');
+  const parts = parseAiString(f.value);
+  if (!parts) return fail('payload.gs1.syntax');
+  const r = buildDigitalLink(parts, f.domain);
+  return r.ok ? ok(r.url, r.warnings) : fail(r.error);
 }
+
+export { validCheckDigit as validGtinCheckDigit };
 
 /** Parses hex like "0a 1B ff" or "0x0a,0x1b". */
 export function parseHex(value: string): Uint8Array | null {

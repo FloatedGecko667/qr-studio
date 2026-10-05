@@ -4,6 +4,8 @@
  * builds links only from the validated pieces, never from the raw text.
  */
 
+import { parseDigitalLink, type AiPair } from './gs1';
+
 export type WifiAuth = 'WPA' | 'SAE' | 'WEP' | 'nopass';
 
 export interface Contact {
@@ -27,7 +29,7 @@ export interface CalendarEvent {
 }
 
 export type Scanned =
-  | { kind: 'url'; url: string }
+  | { kind: 'url'; url: string; gs1: AiPair[] | null }
   | { kind: 'tel'; number: string }
   | { kind: 'sms'; number: string; message: string }
   | { kind: 'email'; to: string; subject: string; body: string }
@@ -206,7 +208,7 @@ export function parseScanned(raw: string): Scanned {
   const text = raw.trim();
   const upper = text.slice(0, 16).toUpperCase();
 
-  if (/^https?:\/\/\S+$/i.test(text)) return { kind: 'url', url: text };
+  if (/^https?:\/\/\S+$/i.test(text)) return { kind: 'url', url: text, gs1: parseDigitalLink(text) };
 
   if (upper.startsWith('TEL:')) {
     const number = decode(text.slice(4)).trim();

@@ -4,6 +4,7 @@ import {
   buildEvent,
   buildGeo,
   buildGs1,
+  buildGs1DigitalLink,
   buildMecard,
   buildMultiUrl,
   buildSms,
@@ -200,6 +201,14 @@ export const FORMS: Record<PayloadKind, FormDef> = {
     fields: [{ key: 'value', type: 'textarea', label: 'gs1', rows: 2, placeholder: '(01)04912345123459(10)ABC123' }],
     defaults: { value: '' },
     build: (f) => buildGs1({ value: s(f, 'value') }),
+  },
+  gs1dl: {
+    fields: [
+      { key: 'value', type: 'textarea', label: 'gs1', rows: 2, placeholder: '(01)04912345123459(10)ABC123(17)271231' },
+      { key: 'domain', type: 'url', label: 'gs1dlDomain', placeholder: 'https://id.gs1.org' },
+    ],
+    defaults: { value: '', domain: 'https://id.gs1.org' },
+    build: (f) => buildGs1DigitalLink({ value: s(f, 'value'), domain: s(f, 'domain') }),
   },
   image: {
     // Rendered by ImageInput.svelte: resizing is asynchronous, so the fitted file is stored here.
