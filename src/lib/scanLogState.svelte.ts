@@ -1,9 +1,9 @@
 import { createStore, get, set } from 'idb-keyval';
-import { addRead, validEntries, type AddResult, type ScanLogEntry, type ScanLogMode } from './scanLog';
+import { addRead, SCAN_LOG_LIMIT, validEntries, type AddResult, type ScanLogEntry, type ScanLogMode } from './scanLog';
 import { loadJson, saveJson } from './storage/local';
 import { newId } from './storage/records';
 
-const PREFS_KEY = 'qr-studio-scan-prefs';
+export const PREFS_KEY = 'qr-studio-scan-prefs';
 /** Longer payloads (e.g. images) are cut so the log stays small; the scan result keeps the full text. */
 const MAX_TEXT = 10_000;
 
@@ -17,8 +17,9 @@ export interface ScanPrefs {
   deviceId: string;
 }
 
-function loadPrefs(): ScanPrefs {
-  const p = loadJson<Partial<ScanPrefs>>(PREFS_KEY) ?? {};
+/** Stored or imported preferences are untrusted: unknown values fall back to the defaults. */
+export function normalizeScanPrefs(stored: unknown): ScanPrefs {
+  const p = (stored && typeof stored === 'object' ? stored : {}) as Partial<ScanPrefs>;
   return {
     continuous: p.continuous === true,
     mode: p.mode === 'count' ? 'count' : 'each',
@@ -33,7 +34,7 @@ const ls = () => (store ??= createStore('qr-studio-scanlog', 'log'));
 /** Every completed read, kept in IndexedDB across sessions. */
 class ScanLogState {
   entries: ScanLogEntry[] = $state.raw([]);
-  prefs: ScanPrefs = $state(loadPrefs());
+  prefs: ScanPrefs = $state(normalizeScanPrefs(loadJson(PREFS_KEY)));
   #loaded: Promise<void> | null = null;
   #audio: AudioContext | null = null;
 
@@ -59,6 +60,16 @@ class ScanLogState {
       this.#notify();
     }
     return result;
+  }
+
+  /** Adds rows from a backup; rows already in the log (same id) are kept as they are. */
+  async merge(rows: readonly ScanLogEntry[]): Promise<number> {
+    await this.load();
+    const have = new Set(this.entries.map((e) => e.id));
+    const added = rows.filter((r) => !have.has(r.id));
+    this.entries = [...this.entries, ...added].sort((a, b) => b.lastAt - a.lastAt).slice(0, SCAN_LOG_LIMIT);
+    this.#save();
+    return added.length;
   }
 
   remove(id: string): void {

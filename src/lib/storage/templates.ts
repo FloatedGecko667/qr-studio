@@ -77,6 +77,28 @@ export async function saveTemplate(name: string, kind: PayloadKind, values: Form
   return t;
 }
 
+/** Adds templates from a backup (validated again); existing ids are skipped, the limit applies. */
+export async function importTemplates(items: readonly unknown[]): Promise<number> {
+  const existing = await listTemplates();
+  const have = new Set(existing.map((t) => t.id));
+  let count = existing.length;
+  let added = 0;
+  for (const item of items) {
+    const t = valid(item);
+    if (!t || have.has(t.id) || count >= TEMPLATE_LIMIT) continue;
+    await set(t.id, t, ts());
+    have.add(t.id);
+    count++;
+    added++;
+  }
+  return added;
+}
+
+/** True when any template keeps a password. */
+export function hasSecrets(list: readonly InputTemplate[]): boolean {
+  return list.some((t) => secretKeys(t.kind).some((k) => typeof t.fields[k] === 'string' && t.fields[k] !== ''));
+}
+
 export async function deleteTemplate(id: string): Promise<void> {
   try {
     await del(id, ts());

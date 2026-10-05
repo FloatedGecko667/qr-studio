@@ -36,6 +36,7 @@
   };
   let tab: Tab = $state(launch.tab ?? 'generate');
   let licensesOpen = $state(false);
+  let backupOpen = $state(false);
   let ribbonHeight = $state(0);
   let settingsOpen = $state(false);
   let settingsEl: HTMLDetailsElement | undefined = $state();
@@ -78,6 +79,7 @@
   const loadBarcodeUi = lazy(() => import('./components/barcode'));
   const loadBatch = lazy(() => import('./components/Batch.svelte'));
   const loadScanner = lazy(() => import('./components/Scanner.svelte'));
+  const loadBackup = lazy(() => import('./components/Backup.svelte'));
   const loadHistory = lazy(() => import('./components/History.svelte'));
 
   function setMode(next: Mode) {
@@ -138,6 +140,7 @@
             <option value="en">English</option>
           </select>
         </label>
+        <button type="button" class="btn small" onclick={() => ((backupOpen = true), (settingsOpen = false))}>{t('backup.open')}</button>
       </div>
     </details>
   </header>
@@ -237,6 +240,9 @@
 {#if tab === 'generate'}<PreviewDock anchor={previewEl} />{/if}
 
 <Licenses bind:open={licensesOpen} />
+{#if backupOpen}
+  {#await loadBackup() then { default: Backup }}<Backup bind:open={backupOpen} />{/await}
+{/if}
 <UpdatePrompt />
 
 <style>
