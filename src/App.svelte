@@ -8,7 +8,7 @@
   import SymbolOptions from './components/SymbolOptions.svelte';
   import UpdatePrompt from './components/UpdatePrompt.svelte';
   import { app } from './lib/app.svelte';
-  import { t } from './lib/i18n/index.svelte';
+  import { loadLocale, t } from './lib/i18n/index.svelte';
   import { MODES, type Locale, type Mode, type Theme } from './lib/settings';
   import { applyTheme } from './lib/theme';
   import { clearLaunchParams, launchTarget, type Tab } from './lib/launch';
@@ -71,8 +71,10 @@
   }
 
   function setLocale(locale: Locale) {
+    // Saved at once; the text switches when the dictionary has arrived (the old one shows until then).
     app.settings.locale = locale;
     app.persist();
+    void loadLocale(locale);
   }
 
   // Screens other than the QR generator load on first use to keep the initial bundle small.
