@@ -1,8 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { app } from '../lib/app.svelte';
   import { copyText, downloadBlob } from '../lib/export/download';
-  import { formatNumber, t } from '../lib/i18n/index.svelte';
+  import { formatNumber, localeTag, t } from '../lib/i18n/index.svelte';
   import { toCsv, type ScanLogMode } from '../lib/scanLog';
   import { scanLog } from '../lib/scanLogState.svelte';
 
@@ -47,7 +46,7 @@
   }
 
   const time = (at: number) =>
-    new Date(at).toLocaleString(app.settings.locale === 'en' ? 'en-US' : 'ja-JP', { dateStyle: 'short', timeStyle: 'medium' });
+    new Date(at).toLocaleString(localeTag(), { dateStyle: 'short', timeStyle: 'medium' });
 </script>
 
 <section class="card stack" aria-labelledby="scan-log-heading">

@@ -1,7 +1,6 @@
 <script lang="ts">
-  import { app } from '../lib/app.svelte';
   import { copyText, downloadBlob } from '../lib/export/download';
-  import { t } from '../lib/i18n/index.svelte';
+  import { localeTag, t } from '../lib/i18n/index.svelte';
   import { AI_NAMES, gs1Date } from '../lib/payload/gs1';
   import { eventToIcs, icalToDate, links, parseScanned } from '../lib/payload/parse';
   import { newId } from '../lib/storage/records';
@@ -42,7 +41,7 @@
   function when(value: string): string {
     const d = icalToDate(value);
     if (!d) return value;
-    const locale = app.settings.locale === 'en' ? 'en-US' : 'ja-JP';
+    const locale = localeTag();
     return d.allDay
       ? d.date.toLocaleDateString(locale, { dateStyle: 'medium' })
       : d.date.toLocaleString(locale, { dateStyle: 'medium', timeStyle: 'short' });

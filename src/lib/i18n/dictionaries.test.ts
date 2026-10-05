@@ -1,8 +1,15 @@
 import { describe, expect, it } from 'vitest';
+import { de } from './de';
 import { en } from './en';
+import { es } from './es';
+import { fr } from './fr';
+import { it as itDict } from './it';
 import { ja } from './ja';
+import { pt } from './pt';
+import { zhHans } from './zh-Hans';
+import { zhHant } from './zh-Hant';
 
-const DICTS: Record<string, Record<string, string>> = { en };
+const DICTS: Record<string, Record<string, string>> = { en, 'zh-Hans': zhHans, 'zh-Hant': zhHant, fr, de, es, pt, it: itDict };
 const placeholders = (s: string) => [...s.matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort();
 
 describe('dictionaries', () => {

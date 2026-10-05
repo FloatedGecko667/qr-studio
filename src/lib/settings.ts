@@ -57,7 +57,33 @@ export interface OutputSettings {
 export type Theme = 'system' | 'light' | 'dark';
 export type Mode = 'qr' | 'barcode' | 'datamatrix';
 export const MODES: Mode[] = ['qr', 'barcode', 'datamatrix'];
-export type Locale = 'ja' | 'en';
+export const LOCALES = ['ja', 'en', 'zh-Hans', 'zh-Hant', 'fr', 'de', 'es', 'pt', 'it'] as const;
+export type Locale = (typeof LOCALES)[number];
+/** Each language in its own name, for the language menu. */
+export const LOCALE_NAMES: Record<Locale, string> = {
+  ja: '日本語',
+  en: 'English',
+  'zh-Hans': '简体中文',
+  'zh-Hant': '繁體中文',
+  fr: 'Français',
+  de: 'Deutsch',
+  es: 'Español',
+  pt: 'Português',
+  it: 'Italiano',
+};
+/** BCP 47 tag for Intl date and number formatting. */
+export const LOCALE_TAGS: Record<Locale, string> = {
+  ja: 'ja-JP',
+  en: 'en-US',
+  'zh-Hans': 'zh-CN',
+  'zh-Hant': 'zh-TW',
+  fr: 'fr-FR',
+  de: 'de-DE',
+  es: 'es-ES',
+  pt: 'pt-BR',
+  it: 'it-IT',
+};
+const isLocale = (v: unknown): v is Locale => (LOCALES as readonly unknown[]).includes(v);
 /** "simple": input, preview and the main actions only; "detailed": every option. */
 export type View = 'simple' | 'detailed';
 
@@ -146,15 +172,27 @@ export function mergeKnown<T extends object>(defaults: T, stored: unknown): T {
   return out;
 }
 
-export function detectLocale(): Locale {
-  const lang = typeof navigator === 'undefined' ? 'ja' : navigator.language;
-  return lang.toLowerCase().startsWith('ja') ? 'ja' : 'en';
+/** Picks the first supported language from the browser's preferences; English otherwise. */
+export function detectLocale(
+  languages: readonly string[] = typeof navigator === 'undefined'
+    ? ['ja']
+    : navigator.languages?.length
+      ? navigator.languages
+      : [navigator.language],
+): Locale {
+  for (const raw of languages) {
+    const tag = raw.toLowerCase();
+    if (tag.startsWith('zh')) return /^zh-(hant|tw|hk|mo)\b/.test(tag) ? 'zh-Hant' : 'zh-Hans';
+    const base = tag.split('-')[0];
+    if (isLocale(base)) return base;
+  }
+  return 'en';
 }
 
 export function loadSettings(stored: unknown): Settings {
   const s = (stored && typeof stored === 'object' ? stored : {}) as Record<string, unknown>;
   const theme = s.theme === 'light' || s.theme === 'dark' ? s.theme : 'system';
-  const locale = s.locale === 'ja' || s.locale === 'en' ? s.locale : detectLocale();
+  const locale = isLocale(s.locale) ? s.locale : detectLocale();
   return {
     symbol: mergeKnown(DEFAULT_SYMBOL, s.symbol),
     style: mergeKnown(DEFAULT_STYLE, s.style),

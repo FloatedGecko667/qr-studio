@@ -1,5 +1,5 @@
 import { app } from '../app.svelte';
-import type { Locale } from '../settings';
+import { LOCALE_TAGS, type Locale } from '../settings';
 import type { ja } from './ja';
 
 export type MessageKey = keyof typeof ja;
@@ -10,6 +10,13 @@ export type Messages = Record<MessageKey, string>;
 const LOADERS: Record<Locale, () => Promise<Messages>> = {
   ja: () => import('./ja').then((m) => m.ja),
   en: () => import('./en').then((m) => m.en),
+  'zh-Hans': () => import('./zh-Hans').then((m) => m.zhHans),
+  'zh-Hant': () => import('./zh-Hant').then((m) => m.zhHant),
+  fr: () => import('./fr').then((m) => m.fr),
+  de: () => import('./de').then((m) => m.de),
+  es: () => import('./es').then((m) => m.es),
+  pt: () => import('./pt').then((m) => m.pt),
+  it: () => import('./it').then((m) => m.it),
 };
 
 let dict: Record<string, string> = $state.raw({});
@@ -39,5 +46,10 @@ export function t(key: string, params?: Record<string, string | number>): string
 }
 
 export function formatNumber(n: number): string {
-  return n.toLocaleString(app.settings.locale === 'ja' ? 'ja-JP' : 'en-US');
+  return n.toLocaleString(localeTag());
+}
+
+/** BCP 47 tag of the current language, for Intl formatting. */
+export function localeTag(): string {
+  return LOCALE_TAGS[app.settings.locale];
 }

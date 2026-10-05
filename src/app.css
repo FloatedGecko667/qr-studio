@@ -21,6 +21,15 @@
   color-scheme: light;
 }
 
+/* Chinese text uses the system's Chinese fonts (not bundled): Japanese fonts draw some hanzi in
+   Japanese forms. */
+:root:lang(zh-Hans) {
+  --font: 'JetBrains Mono Variable', 'PingFang SC', 'Microsoft YaHei', 'Noto Sans SC', 'Noto Sans CJK SC', ui-monospace, monospace;
+}
+:root:lang(zh-Hant) {
+  --font: 'JetBrains Mono Variable', 'PingFang TC', 'Microsoft JhengHei', 'Noto Sans TC', 'Noto Sans CJK TC', ui-monospace, monospace;
+}
+
 /* Wide monitors: use the room for a third column (see .layout in App.svelte). */
 @media (min-width: 1440px) {
   :root {

@@ -10,7 +10,7 @@
   import UpdatePrompt from './components/UpdatePrompt.svelte';
   import { app } from './lib/app.svelte';
   import { loadLocale, t } from './lib/i18n/index.svelte';
-  import { MODES, type Locale, type Mode, type Theme, type View } from './lib/settings';
+  import { LOCALES, LOCALE_NAMES, MODES, type Locale, type Mode, type Theme, type View } from './lib/settings';
   import { applyTheme } from './lib/theme';
   import { clearLaunchParams, launchTarget, type Tab } from './lib/launch';
   import { lazy } from './lib/ui/lazy';
@@ -150,8 +150,9 @@
         <label class="field">
           <span>{t('locale.label')}</span>
           <select value={app.settings.locale} onchange={(e) => setLocale(e.currentTarget.value as Locale)}>
-            <option value="ja">日本語</option>
-            <option value="en">English</option>
+            {#each LOCALES as l (l)}
+              <option value={l} lang={l}>{LOCALE_NAMES[l]}</option>
+            {/each}
           </select>
         </label>
         <button type="button" class="btn small" onclick={() => ((backupOpen = true), (settingsOpen = false))}>{t('backup.open')}</button>
@@ -474,7 +475,13 @@
     display: flex;
     flex-wrap: wrap;
     justify-content: center;
-    gap: 4px 16px;
+    gap: 0 16px;
+  }
+  /* 24px tall targets: long translations wrap onto several lines (WCAG 2.5.8). */
+  .footer-links .link {
+    display: inline-flex;
+    align-items: center;
+    min-height: 24px;
   }
   a.link {
     font-size: 12px;
