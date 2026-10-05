@@ -189,6 +189,16 @@ export function detectLocale(
   return 'en';
 }
 
+/**
+ * Layout version written with the settings. 1 (no `schema`, before 2026-10) lacks the view, design
+ * shape, gradient and logo options and has only ja/en: loading fills them with defaults, so no
+ * transformation is needed yet. A later layout change adds its step here.
+ */
+export const SETTINGS_SCHEMA = 2;
+
+/** What is saved to localStorage: the settings with their layout version. */
+export const storedSettings = (s: Settings) => ({ schema: SETTINGS_SCHEMA, ...s });
+
 export function loadSettings(stored: unknown): Settings {
   const s = (stored && typeof stored === 'object' ? stored : {}) as Record<string, unknown>;
   const theme = s.theme === 'light' || s.theme === 'dark' ? s.theme : 'system';

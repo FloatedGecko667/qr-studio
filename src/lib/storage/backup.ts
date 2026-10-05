@@ -2,10 +2,10 @@
 // history and the scan log. Imported files are untrusted and pass through the same loaders
 // and validators as data read from storage.
 
-import { BARCODE_KEY, loadBarcodeSettings, MATRIX_KEY } from '../barcode/settings';
+import { BARCODE_KEY, loadBarcodeSettings, MATRIX_KEY, storedBarcodeSettings } from '../barcode/settings';
 import { validEntries, type ScanLogEntry } from '../scanLog';
 import { normalizeScanPrefs, PREFS_KEY, scanLog } from '../scanLogState.svelte';
-import { loadSettings, SETTINGS_KEY } from '../settings';
+import { loadSettings, SETTINGS_KEY, storedSettings } from '../settings';
 import { exportHistory, parseHistory } from './historyJson';
 import { loadJson, saveJson } from './local';
 import { addHistory, listHistory, listPresets, savePreset, type HistoryEntry, type Preset } from './records';
@@ -123,9 +123,9 @@ export function parseBackup(json: string): ParsedBackup | null {
  * scan log rows are added by id. The caller reloads the page so the new settings take effect.
  */
 export async function restoreBackup(b: ParsedBackup): Promise<BackupSummary> {
-  if (b.settings.qr) saveJson(SETTINGS_KEY, loadSettings(b.settings.qr));
-  if (b.settings.barcode) saveJson(BARCODE_KEY, loadBarcodeSettings(b.settings.barcode));
-  if (b.settings.matrix) saveJson(MATRIX_KEY, loadBarcodeSettings(b.settings.matrix));
+  if (b.settings.qr) saveJson(SETTINGS_KEY, storedSettings(loadSettings(b.settings.qr)));
+  if (b.settings.barcode) saveJson(BARCODE_KEY, storedBarcodeSettings(loadBarcodeSettings(b.settings.barcode)));
+  if (b.settings.matrix) saveJson(MATRIX_KEY, storedBarcodeSettings(loadBarcodeSettings(b.settings.matrix)));
   if (b.settings.scanPrefs) saveJson(PREFS_KEY, normalizeScanPrefs(b.settings.scanPrefs));
 
   const havePresets = new Set((await listPresets()).map((p) => p.id));

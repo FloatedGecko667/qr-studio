@@ -139,6 +139,11 @@ export function normalizeBarcodeOptions(o: BarcodeOptions): BarcodeOptions {
  * `types` limits the symbologies of one generator (barcodes or Data Matrix); `styleDefaults`
  * overrides the default style for it.
  */
+/** Layout version of the stored barcode settings (see SETTINGS_SCHEMA); 1 had no `schema`. */
+export const BARCODE_SCHEMA = 2;
+
+export const storedBarcodeSettings = (s: BarcodeSettings) => ({ schema: BARCODE_SCHEMA, ...s });
+
 export function loadBarcodeSettings(
   stored: unknown,
   types: readonly BarcodeType[] = Object.keys(BARCODE_LABELS) as BarcodeType[],

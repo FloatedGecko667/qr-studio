@@ -9,7 +9,7 @@ import { computeUsage, type Usage } from './usage';
 import { loadJson, saveJson } from './storage/local';
 import { UndoHistory, type Undoable } from './undo';
 import { undoTargets } from './undoTargets.svelte';
-import { loadSettings, SETTINGS_KEY, type OutputSettings, type Settings, type StyleSettings, type SymbolSettings } from './settings';
+import { loadSettings, SETTINGS_KEY, storedSettings, type OutputSettings, type Settings, type StyleSettings, type SymbolSettings } from './settings';
 
 /** Largest binary upload: 16 structured-append symbols of version 40-L. */
 export const MAX_BINARY_BYTES = (capacityRow(symbolSpec('model2', 40, 'L'), { structuredAppend: 16 }).byte ?? 0);
@@ -63,7 +63,7 @@ class AppState implements Undoable {
   }
 
   persist(): void {
-    saveJson(SETTINGS_KEY, this.settings);
+    saveJson(SETTINGS_KEY, storedSettings(this.settings));
   }
 
   private snapshot(): QrSnapshot {

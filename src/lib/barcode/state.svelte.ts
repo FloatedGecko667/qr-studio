@@ -10,6 +10,7 @@ import {
   normalizeBarcodeOptions,
   normalizeBarcodeOutput,
   normalizeBarcodeStyle,
+  storedBarcodeSettings,
   type BarcodeOutput,
   type BarcodeSettings,
 } from './settings';
@@ -40,7 +41,7 @@ export class BarcodeState implements Undoable {
   }
 
   persist(): void {
-    saveJson(this.key, this.settings);
+    saveJson(this.key, storedBarcodeSettings(this.settings));
   }
 
   private snapshot(): Snapshot {
