@@ -18,6 +18,12 @@ export function codeSurface(node: HTMLElement) {
   let lastKey = '';
 
   async function paint() {
+    // {@html} updates replace the element's whole content, taking the canvas with it.
+    if (canvas.parentNode !== node) {
+      canvas.hidden = true;
+      lastKey = '';
+      node.append(canvas);
+    }
     const svg = node.querySelector<SVGSVGElement>(':scope > svg, :scope > * > svg');
     if (!svg) {
       canvas.hidden = true;
