@@ -43,7 +43,9 @@ npm run dev
 - `src/lib/encoder/roundtrip.test.ts`：全シンボル・全型番・全誤り訂正レベルを zxing-cpp で読み取り、元データに戻ることを確認します。
 - `src/lib/encoder/capacity.test.ts`：容量テーブルの最大文字数ちょうどが入り、1文字多いと入らないことを全行で確認します。
 - `src/lib/barcode/barcode.test.ts`：バーコードのバー・スペース幅が bwip-js と一致し、zxing-cpp で読み取れることを確認します。
-- `e2e/`：PC とスマホの2つの画面サイズで、生成・読取検証・保存・読取・一括生成・履歴・設定の保存・スクロール時のプレビュー表示を Playwright で確認し、全モード・全タブ（ライト／ダーク）を axe-core で WCAG 2.2 AA に照らして検査します。
+- `e2e/`：PC とスマホの2つの画面サイズで、生成・読取検証・保存・読取・一括生成・履歴・設定の保存・スクロール時のプレビュー表示を Playwright で確認し、全モード・全タブ（ライト／ダーク）を axe-core で WCAG 2.2 AA に照らして検査します。主な流れは Firefox・WebKit（PC・iPhone）でも実行します。
+- `e2e/visual.spec.ts`：デザインテンプレートと主な画面のスクリーンショットを `e2e/__screenshots__` の基準画像と比べます。意図した見た目の変更のあとは、手元（macOS）で `npx playwright test --project=visual --update-snapshots`、Linux 分は GitHub Actions の「Visual baselines」を実行して成果物の画像を置き換えます。
+- Lighthouse CI（モバイル）：性能・アクセシビリティ・ベストプラクティスが 95 以上であることを CI で確認します（`lighthouserc.json`）。
 - `src/lib/barcode/capacity.test.ts`：2次元コードの容量テーブルの最大文字数ちょうどが入り、1文字多いと入らないことを全行で確認します。
 - `src/lib/barcode/pdf417.test.ts`・`aztec.test.ts`：同じ符号語・ビット列から作ったシンボルが bwip-js とモジュール単位で一致し（PDF417 は複数の列数・誤り訂正レベル、Aztec はコンパクト1〜4層とフルレンジ1〜32層）、zxing-cpp で読み取れることを確認します。PDF417 の符号語パターン表は `scripts/gen-pdf417-table.mjs` で再生成します。
 - `src/lib/barcode/datamatrix.test.ts`：Data Matrix の全サイズのモジュール配置が bwip-js と一致し、zxing-cpp で読み取れることを確認します。
