@@ -1,0 +1,25 @@
+# Weekly update pull requests. CI (check, e2e on three engines, Lighthouse) must pass before merging.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      timezone: Asia/Tokyo
+    open-pull-requests-limit: 5
+    groups:
+      # Tooling moves together; runtime libraries (zxing-wasm, fflate, ...) get their own PRs.
+      dev-tooling:
+        dependency-type: development
+        update-types: [minor, patch]
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      timezone: Asia/Tokyo
+    # Actions stay pinned to full commit SHAs; Dependabot updates the SHA and the version comment.
+    groups:
+      actions:
+        patterns: ['*']

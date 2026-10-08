@@ -50,6 +50,10 @@ npm run dev
 - `src/lib/barcode/pdf417.test.ts`・`aztec.test.ts`：同じ符号語・ビット列から作ったシンボルが bwip-js とモジュール単位で一致し（PDF417 は複数の列数・誤り訂正レベル、Aztec はコンパクト1〜4層とフルレンジ1〜32層）、zxing-cpp で読み取れることを確認します。PDF417 の符号語パターン表は `scripts/gen-pdf417-table.mjs` で再生成します。
 - `src/lib/barcode/datamatrix.test.ts`：Data Matrix の全サイズのモジュール配置が bwip-js と一致し、zxing-cpp で読み取れることを確認します。
 
+## 依存パッケージの更新
+
+Dependabot（`.github/dependabot.yml`）が毎週月曜に npm パッケージと GitHub Actions の更新 PR を作ります。開発用ツールの小さな更新は1つの PR にまとめ、Actions は完全な SHA で固定したまま更新します。CI がすべて通ったものだけをマージしてください。Playwright を更新して見た目の回帰テストが失敗したときは、CI の成果物の差分画像を確認し、意図どおりなら基準画像を作り直します。
+
 ## ライセンス
 
 MIT。同梱フォント JetBrains Mono は SIL Open Font License 1.1 です。
